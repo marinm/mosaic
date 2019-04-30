@@ -1,3 +1,16 @@
+#droparea {
+	display: block;
+	width: 500px;
+	height: 500px;
+	background-color: #00FF00;
+	border-radius: 5px;
+	margin: 20px auto 0 auto;
+}
+
+#dropform {
+	display: none;
+}
+
 #gobutton {
 	padding: 10px;
 	background-color: #00FF00;

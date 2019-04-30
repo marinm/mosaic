@@ -5,7 +5,16 @@
 <link rel="stylesheet" href="/css/mosaic.css">
 <script src="/js/mosaic.js"></script>
 </head>
-<body>
+<body onload="bodyonload()">
+
+<!-- Drop Area -->
+<div id="droparea">
+	<form id="dropform">
+		<p>Drag and drop files here</p>
+		<input type="file" id="fileinput" accept="image/*" onchange="handleFiles(this.files)">
+		<label class="button" for="fileinput">Select image</label>
+	</form>
+</div>
 
 <div id="gobutton" onclick="go()">Go</div>
 
