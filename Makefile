@@ -5,7 +5,7 @@ CCSTD=-std=c11
 all: server client
 
 server: mosaic.c
-	gcc mosaic.c $(CCSTD) -o /var/www/cgi/mosaic.cgi
+	gcc mosaic.c $(CCSTD) -lfrozen -o /var/www/cgi/mosaic.cgi
 
 client: mosaic.html mosaic.css mosaic.js
 	cp -u mosaic.html /var/www/html

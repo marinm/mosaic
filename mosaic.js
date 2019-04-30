@@ -8,24 +8,12 @@ function bodyonload() {
 	dragdroplisteners();
 }
 
-function go() {
-	send_post("Hello?", response_callback);
-}
-
 function send_post(str, callback) {
 	var xhr = new XMLHttpRequest();
 	xhr.open('POST', SERVER_RESOURCE);
 	xhr.responseType = SERVER_RESPONSE_TYPE;
 	xhr.onload = callback;
 	xhr.send(str);
-}
-
-function response_callback(ev) {
-	// Take action after fully downloaded
-	if (this.readyState === this.DONE && this.status === 200) {
-		// The server response as a JSON object
-		console.log(this.response.returnstatus);
-	}
 }
 
 function dragdroplisteners() {
@@ -78,6 +66,18 @@ function handleDrop(e) {
 function dropfileaction() {
 	// The result is in base64 format
 	console.log(this.result.length);
-	go();
+
+	var request = {length: this.result.length, file: this.result};
+	send_post(JSON.stringify(request), response_callback);
+}
+
+function response_callback(ev) {
+	if (!(this.readyState === this.DONE && this.status === 200))
+		return;
+
+	// Take action after fully downloaded
+	// The server response as a JSON object
+	console.log('len ' + this.response.len);
+	console.log('b64len ' + this.response.b64len);
 }
 
