@@ -1,3 +1,7 @@
+body {
+	background: url('../img/gray.png') repeat center;
+}
+
 #droparea {
 	display: block;
 	width: 500px;

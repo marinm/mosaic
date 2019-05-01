@@ -65,10 +65,12 @@ function handleDrop(e) {
 
 function dropfileaction() {
 	// The result is in base64 format
-	console.log(this.result.length);
-
-	var request = {length: this.result.length, file: this.result};
-	send_post(JSON.stringify(request), response_callback);
+	// Strip the file type at the start ("data:image/png;base64,")
+	var filestring = this.result.split(',')[1];
+	var request = {length: this.result.length, file: filestring};
+	var request_str = JSON.stringify(request);
+	console.log(request_str);
+	send_post(request_str, response_callback);
 }
 
 function response_callback(ev) {
@@ -77,7 +79,9 @@ function response_callback(ev) {
 
 	// Take action after fully downloaded
 	// The server response as a JSON object
+	console.log('returncode ' + this.response.returncode);
 	console.log('len ' + this.response.len);
 	console.log('b64len ' + this.response.b64len);
+	console.log('dimensions ' + this.response.w + ' ' + this.response.h + ' ' + this.response.c);
 }
 
