@@ -39,11 +39,11 @@ function preventDefaults(e) {
 }
 
 function droparea_on() {
-	document.getElementById('droparea').style.backgroundColor = '#0000FF';
+	document.getElementById('droparea').style.border = '2px dashed blue';
 }
 
 function droparea_off() {
-	document.getElementById('droparea').style.backgroundColor = '#00FF00';
+	document.getElementById('droparea').style.border = 'none';
 }
 
 function handleDrop(e) {
@@ -69,7 +69,6 @@ function dropfileaction() {
 	var filestring = this.result.split(',')[1];
 	var request = {length: this.result.length, file: filestring};
 	var request_str = JSON.stringify(request);
-	console.log(request_str);
 	send_post(request_str, response_callback);
 }
 
@@ -77,11 +76,21 @@ function response_callback(ev) {
 	if (!(this.readyState === this.DONE && this.status === 200))
 		return;
 
+	if (this.response === null)
+		return;
+
 	// Take action after fully downloaded
 	// The server response as a JSON object
-	console.log('returncode ' + this.response.returncode);
-	console.log('len ' + this.response.len);
-	console.log('b64len ' + this.response.b64len);
-	console.log('dimensions ' + this.response.w + ' ' + this.response.h + ' ' + this.response.c);
+	console.log(this.response.transform);
+	console.log(this.response.w);
+	console.log(this.response.h);
+
+	b64png(this.response.transform, 'transform');
 }
 
+// Create a new img element from base64-encoded PNG file
+function b64png(b64str, id) {
+	var img = document.getElementById(id);
+	if (img)
+		img.src = 'data:image/png;base64,' + b64str;
+}
