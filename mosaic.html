@@ -7,14 +7,24 @@
 </head>
 <body onload="bodyonload()">
 
-<!-- Drop Area -->
-<div id="droparea">
-	<form id="dropform">
-		<p>Drag and drop files here</p>
-		<input type="file" id="fileinput" accept="image/*" onchange="handleFiles(this.files)">
-		<label class="button" for="fileinput">Select image</label>
-	</form>
-	<img src="" id="transform">
+<div id="container">
+	<!-- Drop Area -->
+	<div id="droparea">
+		<form id="dropform">
+			<p>Drag and drop files here</p>
+			<input type="file" id="fileinput" accept="image/*" onchange="handleFiles(this.files)">
+			<label class="button" for="fileinput">Select image</label>
+		</form>
+		<img src="/img/coloured.png" id="tiles">
+	</div>
+
+	<div id="sizebuttonscontainer">
+	<a href="javascript:show128();" class="ntilesbutton">128</a>
+	<a href="javascript:show64() ;" class="ntilesbutton">64</a>
+	<a href="javascript:show32() ;" class="ntilesbutton">32</a>
+	<a href="javascript:show16() ;" class="ntilesbutton">16</a>
+	<a href="javascript:show8()  ;" class="ntilesbutton">8</a>
+	</div>
 </div>
 
 </body>

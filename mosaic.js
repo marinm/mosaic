@@ -4,6 +4,12 @@ const SERVER_RESOURCE       = '/cgi/mosaic.cgi';
 const SERVER_RESPONSE_TYPE  = 'json';
 const MAX_FILESIZE          = 4000000;
 
+var tiles128 = ' ';
+var tiles64  = ' ';
+var tiles32  = ' ';
+var tiles16  = ' ';
+var tiles8   = ' ';
+
 function bodyonload() {
 	dragdroplisteners();
 }
@@ -81,18 +87,25 @@ function response_callback(ev) {
 	// Take action after fully downloaded
 	// The server response as a JSON object
 
-	addimg(this.response.tiles128);
-	addimg(this.response.tiles64);
-	addimg(this.response.tiles32);
-	addimg(this.response.tiles16);
-	addimg(this.response.tiles8);
+	tiles128 = 'data:image/png;base64,' + this.response.tiles128;
+	tiles64 = 'data:image/png;base64,' + this.response.tiles64;
+	tiles32 = 'data:image/png;base64,' + this.response.tiles32;
+	tiles16 = 'data:image/png;base64,' + this.response.tiles16;
+	tiles8 = 'data:image/png;base64,' + this.response.tiles8;
 }
 
-// Create a new img element from base64-encoded PNG file
-function addimg(b64str) {
-	var img = document.createElement('img');
-	if (img) {
-		img.src = 'data:image/png;base64,' + b64str;
-		document.getElementById('droparea').appendChild(img);
-	}
+function show128() {
+	document.getElementById('tiles').src = tiles128;
+}
+function show64() {
+	document.getElementById('tiles').src = tiles64;
+}
+function show32() {
+	document.getElementById('tiles').src = tiles32;
+}
+function show16() {
+	document.getElementById('tiles').src = tiles16;
+}
+function show8() {
+	document.getElementById('tiles').src = tiles8;
 }

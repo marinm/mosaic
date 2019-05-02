@@ -15,7 +15,7 @@ typedef struct {
 
 pixelarray *newpixelarray    (int h, int w, int c);
 pixelarray *pixread          (unsigned char *file, int len);
-pixelarray *grout            (pixelarray *p, int k);
+int grout            (pixelarray *p, int k);
 pixelarray *evenfit          (pixelarray *p, int m);
 pixelarray *fitdimension     (pixelarray *p, int s);
 pixelarray *squarecrop       (pixelarray *p);

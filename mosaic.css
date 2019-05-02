@@ -1,6 +1,13 @@
 body {
 	background: url('../img/gray.png') repeat center;
 	text-align: center;
+	box-sizing: border-box;
+}
+
+#container {
+	width: 530px;
+	text-align: center;
+	margin: 20px auto 0 auto;
 }
 
 #droparea {
@@ -14,8 +21,11 @@ body {
 	margin: 20px auto 0 auto;
 }
 
-#droparea img {
+#tiles {
 	vertical-align: middle;
+}
+
+#droparea img {
 }
 
 #dropform {
@@ -27,4 +37,22 @@ body {
 	background-color: #00FF00;
 	border-radius: 5px;
 	margin: 20px auto 0 auto;
+}
+
+#sizebuttonscontainer {
+	background-color: #FFFFFF;
+	text-align: center;
+	padding: 10px;
+}
+
+.ntilesbutton {
+	display: inline-block;
+	padding: 3px;
+	border-radius: 2px;
+	font-family: sans-serif;
+	background-color: #CCCCCC;
+	border-right: 1px solid #999999;
+	border-bottom: 1px solid #999999;
+	text-decoration: none;
+	width: 30px;
 }

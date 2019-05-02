@@ -214,6 +214,14 @@ pixelarray *newpixelarray(int h, int w, int c) {
 	return pxarr;
 }
 
+pixelarray *resizearray(pixelarray *p, int h, int w, int c) {
+	p->RGB = realloc(p->RGB, h * w * c);
+	p->h = h;
+	p->w = w;
+	p->c = c;
+	return p;
+}
+
 pixelarray *squarecrop(pixelarray *pxarr) {
 	// The smaller of the dimensions
 	// Shave off the remainder rows/pixels to keep multiple of 8
@@ -317,8 +325,8 @@ int isgrout(pixelarray *p, int i, int k) {
 }
 
 // Replace some lines with white
-pixelarray *grout(pixelarray *p, int k) {
-	pixelarray *G = copypixelarray(p);
+int grout(pixelarray *p, int k) {
+	pixelarray *G = p;
 
 	// Grout colour
 	int r = 0x00;
@@ -335,7 +343,7 @@ pixelarray *grout(pixelarray *p, int k) {
 		if (isgrout(G, j, k))
 			colfill(G, j, r, g, b);
 
-	return G;
+	return 1;
 }
 
 pixelarray *tiles(pixelarray *p, int fit, int size) {
@@ -343,12 +351,11 @@ pixelarray *tiles(pixelarray *p, int fit, int size) {
 	//pixelarray *F = squarefit(E, fit);
 	pixelarray *F = fitdimension(E, fit);
 	pixelarray *T = expand(F, size);
-	pixelarray *G = grout(T, size);
+	grout(T, size);
 
 	delpixelarray(E);
 	delpixelarray(F);
-	delpixelarray(T);
-	return G;
+	return T;
 }
 
 pixelarray *pixread(unsigned char *file, int len) {
