@@ -41,13 +41,13 @@ function dragdroplisteners() {
 	droparea.addEventListener('dragover'  , preventDefaults, false);
 	droparea.addEventListener('drop'      , preventDefaults, false);
 
-	droparea.addEventListener('dragenter' , droparea_on, false);
-	droparea.addEventListener('dragover'  , droparea_on, false);
+	droparea.addEventListener('dragenter' , droparea_enter, false);
+	droparea.addEventListener('dragover'  , droparea_over, false);
 
 	droparea.addEventListener('dragleave' , droparea_off, false);
 	droparea.addEventListener('drop'      , droparea_off, false);
 
-	droparea.addEventListener('drop'      , handleDrop, false)
+	droparea.addEventListener('drop'      , droparea_drop, false)
 }
 
 function preventDefaults(e) {
@@ -79,6 +79,23 @@ function hideelement(id) {
 }
 
 
+function droparea_enter(e) {
+	// The DataTransfer object
+	const dt = e.dataTransfer;
+
+	// Only handle the data transfer if there is at least one file
+	if (!dt.types.includes('Files'))
+		return;
+
+	logevent('DRAG ENTER ' + dt.items.length);
+	logevent('DROP EFFECT ' + dt.dropEffect);
+	
+	droparea_on();
+}
+
+function droparea_over(e) {
+	// Do nothing...
+}
 
 function droparea_on() {
 	document.getElementById('droparea').style.border = '2px dashed blue';
@@ -88,11 +105,22 @@ function droparea_off() {
 	document.getElementById('droparea').style.border = 'none';
 }
 
-function handleDrop(e) {
-	var files = e.dataTransfer.files
+function droparea_drop(e) {
+	// The DataTransfer object
+	const dt = e.dataTransfer;
+
+	logevent('DROP ' + dt.items.length + ' ITEMS');
+	logevent('DROP EFFECT ' + dt.dropEffect);
+	logevent('DROP TYPES ' + dt.types.toString());
+
+	// Only handle file drops
+	if (dt.files.length === 0)
+		return;
+
+	var files = dt.files;
 
 	// Handle only one input file
-	var file = files[0]
+	var file = files[0];
 	// Do nothing for too-big files
 	if (file.size > MAX_FILESIZE)
 		return;
