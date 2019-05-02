@@ -118,16 +118,6 @@ void quantize(pixelarray *p, int q) {
 		p->RGB[i] = (p->RGB[i] / q) * q;
 }
 
-// A pixel is grout if it is on the edge of the image, or
-// its row is a a multiple of k+1 pixels from the edge, or
-// its column is a multiple of k+1 pixels from the edge
-int isgrout(pixelarray *p, int i, int j, int k) {
-	return (i == 0 || i == (p->h - 1) ||
-	        j == 0 || j == (p->w - 1) ||
-	        (((i % k) == 0) && (i+k <= p->h)) ||
-	        (((j % k) == 0) && (j+k <= p->w))
-	);	
-}
 
 
 
@@ -267,7 +257,8 @@ pixelarray *squarefit(pixelarray *pxarr, int s) {
 		colfill(square, j, r, g, b);
 	for (int j = 0; j < padding_r; j++)
 		colfill(square, padding_l + fitted->w + j, r, g, b);
-	
+
+	delpixelarray(fitted);	
 	return square;
 }
 
@@ -318,28 +309,43 @@ pixelarray *copypixelarray(pixelarray *p) {
 	return copy;
 }
 
+// A pixel is grout if it is on the edge of the image, or
+// its row is a a multiple of k+1 pixels from the edge, or
+// its column is a multiple of k+1 pixels from the edge
+int isgrout(pixelarray *p, int i, int k) {
+	return i == 0 || i == (p->h - 1) || (((i % k) == 0) && (i+k <= p->h));
+}
+
 // Replace some lines with white
 pixelarray *grout(pixelarray *p, int k) {
 	pixelarray *G = copypixelarray(p);
 
-	for (int i = 0; i < G->h; i++) {
-		for (int j = 0; j < G->w; j++) {
-			if (isgrout(G, i, j, k))
-				pixfill(G, i, j, 0x00, 0x00, 0x00);
-		}
-	}
+	// Grout colour
+	int r = 0x00;
+	int g = 0x00;
+	int b = 0x00;
+
+	// Horizontal lines
+	for (int i = 0; i < G->h; i++)
+		if (isgrout(G, i, k))
+			rowfill(G, i, r, g, b);
+
+	// Vertical lines	
+	for (int j = 0; j < G->w; j++)
+		if (isgrout(G, j, k))
+			colfill(G, j, r, g, b);
+
 	return G;
 }
 
 pixelarray *tiles(pixelarray *p, int fit, int size) {
 	pixelarray *E = evenfit(p, size);
-	//pixelarray *L = squarefit(E, fit);
+	//pixelarray *F = squarefit(E, fit);
 	pixelarray *F = fitdimension(E, fit);
 	pixelarray *T = expand(F, size);
 	pixelarray *G = grout(T, size);
 
 	delpixelarray(E);
-	//delpixelarray(L);
 	delpixelarray(F);
 	delpixelarray(T);
 	return G;

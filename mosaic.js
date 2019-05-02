@@ -48,19 +48,18 @@ function droparea_off() {
 
 function handleDrop(e) {
 	var files = e.dataTransfer.files
-	// For each file...
-	for (i = 0; i < files.length; i++) {
-		var file = files[i]
-		// Do nothing for too-big files
-		if (file.size > MAX_FILESIZE)
-			continue;
-		var reader = new FileReader();
-		// Read the file. The request is started when the file is finished
-		// loading.
-		reader.onloadend = dropfileaction;
-		// The file will be loaded as base64 utf-8 string
-		reader.readAsDataURL(file);
-	}
+
+	// Handle only one input file
+	var file = files[0]
+	// Do nothing for too-big files
+	if (file.size > MAX_FILESIZE)
+		return;
+	var reader = new FileReader();
+	// Read the file. The request is started when the file is finished
+	// loading.
+	reader.onloadend = dropfileaction;
+	// The file will be loaded as base64 utf-8 string
+	reader.readAsDataURL(file);
 }
 
 function dropfileaction() {
@@ -81,16 +80,19 @@ function response_callback(ev) {
 
 	// Take action after fully downloaded
 	// The server response as a JSON object
-	console.log(this.response.transform);
-	console.log(this.response.w);
-	console.log(this.response.h);
 
-	b64png(this.response.transform, 'transform');
+	addimg(this.response.tiles128);
+	addimg(this.response.tiles64);
+	addimg(this.response.tiles32);
+	addimg(this.response.tiles16);
+	addimg(this.response.tiles8);
 }
 
 // Create a new img element from base64-encoded PNG file
-function b64png(b64str, id) {
-	var img = document.getElementById(id);
-	if (img)
+function addimg(b64str) {
+	var img = document.createElement('img');
+	if (img) {
 		img.src = 'data:image/png;base64,' + b64str;
+		document.getElementById('droparea').appendChild(img);
+	}
 }

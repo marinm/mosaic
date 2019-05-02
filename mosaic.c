@@ -38,7 +38,12 @@ struct {
 
 	// Temporary variables for testing
 	pixelarray px;
-	pixelarray *tf;
+
+	pixelarray *tiles128;
+	pixelarray *tiles64;
+	pixelarray *tiles32;
+	pixelarray *tiles16;
+	pixelarray *tiles8;
 } request;
 
 int loadrequest() {
@@ -77,14 +82,49 @@ int loadimage() {
 
 int transform() {
 	// Create a new image with the tiles effect
-	request.tf = tiles(&request.px, 32, 16);
-	FAILIF(request.tf == NULL);
-
+	request.tiles128 = tiles(&request.px, 128, 4);
+	FAILIF(request.tiles128 == NULL);
 	// Convert the pixelarray to a PNG stream
-	request.tf->file = malloc(PNG_LIMIT);
-	request.tf->flen = 0;
-	request.tf->flim = PNG_LIMIT;
-	FAILIF(pixelarray_png(request.tf) == 0);
+	request.tiles128->file = malloc(PNG_LIMIT);
+	request.tiles128->flen = 0;
+	request.tiles128->flim = PNG_LIMIT;
+	FAILIF(pixelarray_png(request.tiles128) == 0);
+
+	// Create a new image with the tiles effect
+	request.tiles64 = tiles(&request.px, 64, 8);
+	FAILIF(request.tiles64 == NULL);
+	// Convert the pixelarray to a PNG stream
+	request.tiles64->file = malloc(PNG_LIMIT);
+	request.tiles64->flen = 0;
+	request.tiles64->flim = PNG_LIMIT;
+	FAILIF(pixelarray_png(request.tiles64) == 0);
+
+	// Create a new image with the tiles effect
+	request.tiles32 = tiles(&request.px, 32, 16);
+	FAILIF(request.tiles32 == NULL);
+	// Convert the pixelarray to a PNG stream
+	request.tiles32->file = malloc(PNG_LIMIT);
+	request.tiles32->flen = 0;
+	request.tiles32->flim = PNG_LIMIT;
+	FAILIF(pixelarray_png(request.tiles32) == 0);
+
+	// Create a new image with the tiles effect
+	request.tiles16 = tiles(&request.px, 16, 32);
+	FAILIF(request.tiles16 == NULL);
+	// Convert the pixelarray to a PNG stream
+	request.tiles16->file = malloc(PNG_LIMIT);
+	request.tiles16->flen = 0;
+	request.tiles16->flim = PNG_LIMIT;
+	FAILIF(pixelarray_png(request.tiles16) == 0);
+
+	// Create a new image with the tiles effect
+	request.tiles8 = tiles(&request.px, 8, 64);
+	FAILIF(request.tiles8 == NULL);
+	// Convert the pixelarray to a PNG stream
+	request.tiles8->file = malloc(PNG_LIMIT);
+	request.tiles8->flen = 0;
+	request.tiles8->flim = PNG_LIMIT;
+	FAILIF(pixelarray_png(request.tiles8) == 0);
 
 	return 1;
 }
@@ -95,10 +135,14 @@ int printjson() {
 
 	struct json_out out = JSON_OUT_FILE(stdout);
 	request.responselen = json_printf(&out,
-		"{elines:%d, transform:%V, w:%d, h:%d}\r\n",
+		"{elines:%d, tiles128:%V, tiles64:%V, tiles32:%V, tiles16:%V, tiles8:%V}\r\n",
 		request.elines[0],
-		request.tf->file, request.tf->flen,
-		request.tf->w, request.tf->h);
+		request.tiles128->file, request.tiles128->flen,
+		request.tiles64->file , request.tiles64->flen,
+		request.tiles32->file , request.tiles32->flen,
+		request.tiles16->file , request.tiles16->flen,
+		request.tiles8->file  , request.tiles8->flen
+	);
 	return 1;
 }
 
