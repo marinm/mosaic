@@ -329,9 +329,9 @@ int grout(pixelarray *p, int k) {
 	pixelarray *G = p;
 
 	// Grout colour
-	int r = 0x00;
-	int g = 0x00;
-	int b = 0x00;
+	int r = 0xFF;
+	int g = 0xFF;
+	int b = 0xFF;
 
 	// Horizontal lines
 	for (int i = 0; i < G->h; i++)

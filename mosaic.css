@@ -1,3 +1,7 @@
+* {
+	font-family: sans-serif;
+}
+
 body {
 	background: url('../img/gray.png') repeat center;
 	text-align: center;
@@ -8,6 +12,19 @@ body {
 	width: 530px;
 	text-align: center;
 	margin: 20px auto 0 auto;
+	box-shadow: 0 0 5px 5px #999999;
+	background-color: #FFFFFF;
+	border-radius: 5px;
+}
+
+#statusarea {
+	display: block;
+	height: 40px;
+}
+
+#statusbar {
+	display: none;
+	background-color: #FEFCE7;
 }
 
 #droparea {
