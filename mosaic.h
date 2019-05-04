@@ -16,12 +16,15 @@ struct {
 	char *response;    // The complete JSON response 
 	int   responselen; // Response length
 
-	char *file;
+	char *userimg;
 	int   binlen;
 
 	int size;
 	int w;
 	int h;
+
+	int ispng;
+	int isjpg;
 } request;
 
 

@@ -7,9 +7,8 @@
 #include <setjmp.h>
 
 #include "frozen.h"
-#include "pixelarray.h"
-
 #include "mosaic.h"
+#include "colourstring.h"
 
 
 int setup() {
@@ -20,7 +19,7 @@ int setup() {
 
 int cleanup() {
 	// The JSON parser allocates a big chunk for the base64 conversion
-	free(request.file);
+	free(request.userimg);
 }
 
 
@@ -49,7 +48,7 @@ int loadrequest() {
 	// The parser allocates memory for its output
  	json_scanf(request.post, request.postlen,
 		"{file:%V}",
-    	&(request.file), &(request.binlen));
+    	&(request.userimg), &(request.binlen));
 
 	// The post body is not needed anymore
 	free(request.post);
@@ -61,6 +60,9 @@ int loadrequest() {
 }
 
 int loadimage() {
+	request.ispng = detect_png(request.userimg);
+	request.isjpg = detect_jpg(request.userimg);
+
 	request.w = 25;
 	request.h = 26;
 
@@ -73,8 +75,8 @@ int printjson() {
 
 	struct json_out out = JSON_OUT_FILE(stdout);
 	request.responselen = json_printf(&out,
-		"{w:%d, h:%d}\r\n",
-		request.w, request.h
+		"{w:%d, h:%d, ispng:%d, isjpg:%d}\r\n",
+		request.w, request.h, request.ispng, request.isjpg
 	);
 
 	return 1;

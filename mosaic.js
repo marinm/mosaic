@@ -258,7 +258,8 @@ function xhr_loadend(ev) {
 
 	var response = this.response;
 
-	logevent('VALUES ' + response.w + 'x' + response.h);
+	logevent('VALUES ' + response.w + 'x' + response.h + ' ispng ' + response.ispng
+		+ ' isjpg ' + response.isjpg);
 }
 
 //function xhr_load(ev) {

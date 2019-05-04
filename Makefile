@@ -4,8 +4,8 @@ CCSTD=-std=c11
 
 all: server client
 
-server: main.o mosaic.o
-	gcc main.o mosaic.o $(CCSTD) -g -lfrozen -ljpeg -o /var/www/cgi/mosaic.cgi
+server: main.o mosaic.o colourstring.o
+	gcc main.o mosaic.o colourstring.o -lfrozen -lpng -ljpeg -o mosaic.cgi
 
 main.o: main.c mosaic.h
 	gcc main.c -c -o main.o
@@ -13,7 +13,12 @@ main.o: main.c mosaic.h
 mosaic.o: mosaic.c mosaic.h
 	gcc mosaic.c -c -o mosaic.o
 
-client: mosaic.html mosaic.css mosaic.js
+colourstring.o: colourstring.c colourstring.h
+	gcc colourstring.c -ljpeg -c -o colourstring.o
+
+
+client: mosaic.html mosaic.css mosaic.js mosaic.cgi
+	cp -u mosaic.cgi  /var/www/cgi
 	cp -u mosaic.html /var/www/html
 	cp -u mosaic.css  /var/www/css
 	cp -u mosaic.js   /var/www/js
