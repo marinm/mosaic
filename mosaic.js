@@ -27,7 +27,6 @@ var tiles16  = ' ';
 var tiles8   = ' ';
 
 var droparea = null;
-var statusbar = null;
 
 
 
@@ -41,12 +40,10 @@ function logevent(str) {
 		pad(now.getSeconds()) + '.' + now.getMilliseconds();
 
 	console.log(timestamp + ' ' + str);
-	statusbar.innerText = str;
 }
 
 function bodyonload() {
 	droparea = document.getElementById('droparea');
-	statusbar = document.getElementById('statusbar');
 	dragdroplisteners();
 }
 
@@ -56,13 +53,13 @@ function dragdroplisteners() {
 	droparea.addEventListener('dragover'  , preventDefaults, false);
 	droparea.addEventListener('drop'      , preventDefaults, false);
 
-	droparea.addEventListener('dragenter' , droparea_enter, false);
-	droparea.addEventListener('dragover'  , droparea_over, false);
+	droparea.addEventListener('dragenter' , droparea_enter,  false);
+	droparea.addEventListener('dragover'  , droparea_over,   false);
 
-	droparea.addEventListener('dragleave' , droparea_off, false);
-	droparea.addEventListener('drop'      , droparea_off, false);
+	droparea.addEventListener('dragleave' , droparea_off,    false);
+	droparea.addEventListener('drop'      , droparea_off,    false);
 
-	droparea.addEventListener('drop'      , droparea_drop, false)
+	droparea.addEventListener('drop'      , droparea_drop,   false)
 }
 
 function preventDefaults(e) {
@@ -170,11 +167,11 @@ function fr_load(ev)      { logevent('FR_LOAD');      }
 function fr_loadstart(ev) { logevent('FR_LOADSTART'); }
 
 function fr_progress(ev) {
-	if (ev.lengthComputable) {
+	if (ev.lengthComputable)
 		logevent('FR_PROGRESS ' + ev.loaded + '/' + ev.total);
-	}
 }
 
+// The request is sent from here
 function fr_loadend(ev) {
 	logevent('FR_LOADEND');
 
@@ -182,9 +179,10 @@ function fr_loadend(ev) {
 	// Strip the file type at the start ("data:image/png;base64,")
 	var filestring = this.result.split(',')[1];
 	// Send off the request in JSON format
-	var request = {length: this.result.length, file: filestring};
+	var request = {file: filestring};
 	send_post(JSON.stringify(request));
 }
+
 
 function send_post(str) {
 	var xhr = new XMLHttpRequest();
@@ -258,13 +256,9 @@ function xhr_loadend(ev) {
 	if (this.status != 200)
 		return;
 
-	tiles128 = 'data:image/png;base64,' + this.response.tiles128;
-	tiles64  = 'data:image/png;base64,' + this.response.tiles64;
-	tiles32  = 'data:image/png;base64,' + this.response.tiles32;
-	tiles16  = 'data:image/png;base64,' + this.response.tiles16;
-	tiles8   = 'data:image/png;base64,' + this.response.tiles8;
+	var response = this.response;
 
-	document.body.style.background = 'url(' + tiles32 + ') repeat';
+	logevent('VALUES ' + response.w + 'x' + response.h);
 }
 
 //function xhr_load(ev) {

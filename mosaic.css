@@ -8,6 +8,19 @@ body {
 	text-align: center;
 }
 
+#githublink {
+	background-color: #000000;
+	border-bottom: 2px solid #53E2A0;
+	position: absolute;
+	right: 10px;
+	top: 10px;
+	padding: 3px 5px 3px 5px;
+	border-radius: 3px;
+	text-decoration: none;
+	color: #FFFFFF;
+	font-size: 9pt;
+	font-family: sans-serif;
+}
 
 #container {
 	width: 400px;
@@ -43,11 +56,10 @@ body {
 	padding: 10px;
 	text-align: center;
 	vertical-align: middle;
-	background-color: #F0F0F0;
-	background-color: #D3EFFF;
 	border: 1px solid #0000FF;
 	border-radius: 3px;
 	box-shadow: 0 0 0 3px #4EB2E8;
+	background-color: #E5E9ED;
 }
 
 #droparea a {
