@@ -1,17 +1,21 @@
 // mosaic.js
 
 // APP CONFIGURATION
-// -------------------------------- - ----------------------------
-const SERVER_RESOURCE               = '/cgi/mosaic.cgi';
-const SERVER_RESPONSE_TYPE          = 'json';
-const MAX_FILESIZE                  = 4000000;
+// --------------------------------- - ----------------------------
+const SERVER_RESOURCE                = '/cgi/mosaic.cgi';
+const SERVER_RESPONSE_TYPE           = 'json';
+const MAX_FILESIZE                   = 4000000;
 
-const POST_REQUEST_TIMEOUT          = 10 * 1000;
+const POST_REQUEST_TIMEOUT           = 10 * 1000;
 
-const STATBAR_STR_CUTOFF            = 50;
+const STATBAR_STR_CUTOFF             = 50;
 
-const STATBAR_COLR_FAIL             = '#FFBCBC';
-const STATBAR_COLR_OK               = '#00FF00';
+const STATBAR_COLR_FAIL              = '#FFBCBC';
+const STATBAR_COLR_OK                = '#00FF00';
+
+const DROPAREA_ACTIVE_BORDER_COLOR   = '#00FF00';
+const DROPAREA_INACTIVE_BORDER_COLOR = '#0000FF';
+
 
 
 var applog = {timestamp: [], message: [], colr: []};
@@ -22,14 +26,28 @@ var tiles32  = ' ';
 var tiles16  = ' ';
 var tiles8   = ' ';
 
+var logtable = null;
+var droparea = null;
+
+
+
+function pad(n) {
+    return (n<10) ? '0'+n : n;
+}
+ 
 function logevent(str) {
 	const now = new Date(Date.now());
-	const timestamp = now.getHours() + ':' + now.getMinutes() + ':' +
-		now.getSeconds() + '.' + now.getMilliseconds();
-	console.log(timestamp + ' ' + str);
+	const timestamp = pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' +
+		pad(now.getSeconds()) + '.' + now.getMilliseconds();
+
+	var row = logtable.insertRow(0);
+	row.insertCell(0).innerText = timestamp;
+	row.insertCell(1).innerText = str;
 }
 
 function bodyonload() {
+	logtable = document.getElementById('logtable');
+	droparea = document.getElementById('droparea');
 	dragdroplisteners();
 }
 
@@ -53,6 +71,10 @@ function dragdroplisteners() {
 function preventDefaults(e) {
 	e.preventDefault()
 	e.stopPropagation()
+}
+
+function clickupload() {
+	document.getElementById('fileinput').click();
 }
 
 // Prepare a string to fit it nicely into limited space
@@ -98,11 +120,11 @@ function droparea_over(e) {
 }
 
 function droparea_on() {
-	document.getElementById('droparea').style.border = '2px dashed blue';
+	droparea.style.borderColor = DROPAREA_ACTIVE_BORDER_COLOR;
 }
 
 function droparea_off() {
-	document.getElementById('droparea').style.border = 'none';
+	droparea.style.borderColor = DROPAREA_INACTIVE_BORDER_COLOR;
 }
 
 function droparea_drop(e) {
@@ -258,10 +280,3 @@ function xhr_loadend(ev) {
 //	}
 //
 //}
-
-function setimgsrc(id, src) {document.getElementById(id).src = src;}
-function show128() {setimgsrc('tiles', tiles128);}
-function show64()  {setimgsrc('tiles', tiles64);}
-function show32()  {setimgsrc('tiles', tiles32);}
-function show16()  {setimgsrc('tiles', tiles16);}
-function show8()   {setimgsrc('tiles', tiles8);}

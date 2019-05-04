@@ -1,20 +1,21 @@
 * {
+	box-sizing: border-box;
 	font-family: sans-serif;
 }
 
 body {
-	background: url('../img/gray.png') repeat center;
+	background: url('../img/gray.png') repeat;
 	text-align: center;
-	box-sizing: border-box;
 }
 
 #container {
-	width: 530px;
+	width: 400px;
 	text-align: center;
 	margin: 20px auto 0 auto;
 	box-shadow: 0 0 5px 5px #999999;
 	background-color: #FFFFFF;
 	border-radius: 5px;
+	padding: 10px;
 }
 
 #statusarea {
@@ -28,14 +29,43 @@ body {
 }
 
 #droparea {
+	margin: 0px auto 15px auto;
 	display: inline-block;
 	box-sizing: border-box;
-	width: 530px;
-	height: 530px;
+	width: 100%;
+	padding: 10px;
 	text-align: center;
+	vertical-align: middle;
+	background-color: #F0F0F0;
+	background-color: #D3EFFF;
+	border: 1px solid #0000FF;
+	border-radius: 3px;
+	box-shadow: 0 0 0 3px #4EB2E8;
+}
+
+#droparea a {
+	text-decoration: underline;
+	color: #0000FF;
+	font-weight: bold;
+}
+
+#tablecontainer {
+	padding: 8px;
 	background-color: #FFFFFF;
-	border-radius: 5px;
-	margin: 20px auto 0 auto;
+	border: 1px solid #CCCCCC;
+	border-radius: 3px;
+}
+
+#logtable {
+	border-collapse: collapse;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+#logtable td {
+	border: 1px solid #EEEEEE;
+	font: 10pt monospace;
+	padding: 5px;
 }
 
 #tiles {
