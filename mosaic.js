@@ -26,8 +26,8 @@ var tiles32  = ' ';
 var tiles16  = ' ';
 var tiles8   = ' ';
 
-var logtable = null;
 var droparea = null;
+var statusbar = null;
 
 
 
@@ -40,20 +40,17 @@ function logevent(str) {
 	const timestamp = pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' +
 		pad(now.getSeconds()) + '.' + now.getMilliseconds();
 
-	var row = logtable.insertRow(0);
-	row.insertCell(0).innerText = timestamp;
-	row.insertCell(1).innerText = str;
+	console.log(timestamp + ' ' + str);
+	statusbar.innerText = str;
 }
 
 function bodyonload() {
-	logtable = document.getElementById('logtable');
 	droparea = document.getElementById('droparea');
+	statusbar = document.getElementById('statusbar');
 	dragdroplisteners();
 }
 
 function dragdroplisteners() {
-	var droparea = document.getElementById('droparea');
-
 	droparea.addEventListener('dragenter' , preventDefaults, false);
 	droparea.addEventListener('dragleave' , preventDefaults, false);
 	droparea.addEventListener('dragover'  , preventDefaults, false);
@@ -171,7 +168,12 @@ function fr_abort(ev)     { logevent('FR_ABORT');     }
 function fr_error(ev)     { logevent('FR_ERROR');     }
 function fr_load(ev)      { logevent('FR_LOAD');      }
 function fr_loadstart(ev) { logevent('FR_LOADSTART'); }
-function fr_progress(ev)  { logevent('FR_PROGRESS');  }
+
+function fr_progress(ev) {
+	if (ev.lengthComputable) {
+		logevent('FR_PROGRESS ' + ev.loaded + '/' + ev.total);
+	}
+}
 
 function fr_loadend(ev) {
 	logevent('FR_LOADEND');
@@ -245,11 +247,12 @@ function xhr_loadend(ev) {
 	logevent('XHR_LOADEND');
 
 	switch (this.status) {
-	case 200 : logevent('SERVER RESPONSE OK'); break;
-	case 404 : logevent('FILE NOT FOUND'    ); break;
-	case 500 : logevent('SERVER ERROR'      ); break;
-	case 0   : logevent('REQUEST ABORTED'   ); break;
-	default  : logevent('UNKNOWN ERROR'     ); break;
+	case 200 : logevent('SERVER RESPONSE OK'    ); break;
+	case 404 : logevent('FILE NOT FOUND'        ); break;
+	case 413 : logevent('REQUEST BODY TOO LARGE'); break;
+	case 500 : logevent('ERROR ON SERVER'       ); break;
+	case 0   : logevent('REQUEST ABORTED'       ); break;
+	default  : logevent('UNKNOWN ERROR'         ); break;
 	}
 
 	if (this.status != 200)
@@ -260,6 +263,8 @@ function xhr_loadend(ev) {
 	tiles32  = 'data:image/png;base64,' + this.response.tiles32;
 	tiles16  = 'data:image/png;base64,' + this.response.tiles16;
 	tiles8   = 'data:image/png;base64,' + this.response.tiles8;
+
+	document.body.style.background = 'url(' + tiles32 + ') repeat';
 }
 
 //function xhr_load(ev) {

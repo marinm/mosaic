@@ -8,28 +8,35 @@ body {
 	text-align: center;
 }
 
+
 #container {
 	width: 400px;
+	margin: 20% auto 0 auto;
 	text-align: center;
-	margin: 20px auto 0 auto;
-	box-shadow: 0 0 5px 5px #999999;
-	background-color: #FFFFFF;
 	border-radius: 5px;
-	padding: 10px;
+}
+
+#tutorialimg {
+	margin: 0 auto 0 auto;
+	box-shadow: 0 0 5px 5px #999999;
+	border-radius: 5px;
 }
 
 #statusarea {
+	margin: 20px auto 0 auto;
 	display: block;
+	width: 100%;
 	height: 40px;
 }
 
 #statusbar {
-	display: none;
+	display: block;
+	width: 100%;
 	background-color: #FEFCE7;
+	color: #DDDDDD;
 }
 
 #droparea {
-	margin: 0px auto 15px auto;
 	display: inline-block;
 	box-sizing: border-box;
 	width: 100%;
@@ -49,6 +56,26 @@ body {
 	font-weight: bold;
 }
 
+#progresscontainer {
+	display: block;
+	width: 100%;
+	padding: 10px;
+}
+
+#indicator_drop,
+#indicator_prepare,
+#indicator_send,
+#indicator_receive,
+#indicator_display,
+#indicator_done {
+	background-color: #F9F9F9;
+	color: #FFFFFF;
+	padding: 3px;
+	width: 20%;
+	font: 10px monospace;
+	display: inline-block;
+}
+
 #tablecontainer {
 	padding: 8px;
 	background-color: #FFFFFF;
@@ -66,6 +93,7 @@ body {
 	border: 1px solid #EEEEEE;
 	font: 10pt monospace;
 	padding: 5px;
+	text-align: left;
 }
 
 #tiles {
