@@ -1,6 +1,6 @@
 // mosaic.c
 // Reads in an image file and returns a transformed image that looks
-// like a mosaic
+// like a mosaic. Input and output are both JSON.
 //
 // SECTIONS IN THIS FILE
 //   * Includes
@@ -10,6 +10,7 @@
 //   * Mosaic
 //   * Services
 //   * Colourstring
+//
 
 // -- INCLUDES --------------------------------------------------------
 
@@ -51,14 +52,24 @@ struct {
 
 	int ispng;
 	int isjpg;
-} request;
 
+	int errno;
+} request;
 
 
 ///////////////////////////////////////////////////////////////////////////////
 
 
 // -- FUNCTIONS DECLARATIONS --------------------------------------------------
+
+// If a function sets the errno flag, future functions should not do anything.
+// The hot potato is passed down the stack.
+#define HOTPOTATO if (request.errno != 0) {printf("HOTPOTATO %d\n", __LINE__); return 0;}
+
+// Requiring makes the potato hot.
+// A function should not leave dangling pointers before requiring.
+// Note that return values and errno treat 1/0 differently.
+#define REQUIRE(C) if (!(C)) {request.errno = __LINE__; return 0;}
 
 int setup();
 int doservice();
@@ -70,8 +81,6 @@ int loaduserjpg();
 int detect_png(unsigned char *stream);
 int detect_jpg(unsigned char *stream);
 
-// Decompress a JPG file held entirely in a large array,
-// into a string of RGBRGBRGB... values.
 int loadjpg(unsigned char *stream, unsigned char *streamlen,
 	unsigned char *rgb, int *w, int *h, int *c);
 
@@ -86,8 +95,6 @@ int service_getimgattributes();
 // -- MAIN ------------------------------------------------------------
 
 int main() {
-	// mosaic.h contains the global request state	
-
 	// Prepare memory, load and parse the request
 	setup();
 
@@ -112,15 +119,22 @@ int setup() {
 	// Zero out the request context
 	memset(&request, 0, sizeof request);
 
-	// Parse JSON contents, then free the POST copy
-	doservice();
+	// The errno indicates if future functions should even execute.
+	request.errno = 0;
+
+	REQUIRE(loadrequest());
+
+	return 1;
 }
 
 
 // Copy the POST payload to memory and parse the JSON contents
 int loadrequest() {
+
+	HOTPOTATO
+
 	// Copy the POST payload to memory
-	copystdin();
+	REQUIRE(copystdin());
 
 	// Parse JSON
 	// The parser allocates memory for its output
@@ -134,6 +148,10 @@ int loadrequest() {
 	// Just to be extra safe...
 	request.post = NULL;
 
+	// An empty request 
+	REQUIRE(request.binlen > 0);
+	REQUIRE(request.userimg != NULL);
+
 	return 1;
 }
 
@@ -142,11 +160,13 @@ int loadrequest() {
 // Copy all of stdin to memory, up to some limit
 // This function creates a new memory block.
 int copystdin() {
+
+	HOTPOTATO
+
 	// Allocate a big block of memory
 	request.post = malloc(POST_LIMIT);
 
-	if (request.post == NULL)
-		return 0;
+	REQUIRE(request.post != NULL);
 
 	// Copy entire POST payload to memory from stdin.
 	// This is simplistic but works most of the time.
@@ -164,13 +184,17 @@ int copystdin() {
 
 int doservice() {
 
-	if (service_getimgattributes() == 0)
-		return 0;
+	HOTPOTATO
+
+	REQUIRE(service_getimgattributes());
 
 	return 1;
 }
 
 int printresponse() {
+
+	HOTPOTATO
+
 	// Write the response to stdout
 	printf("Content-Type: application/json; charset=utf-8;\r\n\r\n");
 
@@ -200,6 +224,9 @@ int cleanup() {
 // Output:
 //
 int service_getimgattributes() {
+
+	HOTPOTATO
+
 	request.ispng = detect_png(request.userimg);
 	request.isjpg = detect_jpg(request.userimg);
 
@@ -207,17 +234,23 @@ int service_getimgattributes() {
 	request.h = 26;
 
 	if (request.isjpg)
-		(void)loaduserjpg();
+		REQUIRE(loaduserjpg());
 
 	return 1;
 }
 
 int loaduserjpg() {
+
+	HOTPOTATO
+
 	return 1;
 }
 
 int loadjpg(unsigned char *stream, unsigned char *streamlen,
 	unsigned char *rgb, int *w, int *h, int *c) {
+
+	HOTPOTATO
+
 	return 1;
 }
 
@@ -231,6 +264,9 @@ int loadjpg(unsigned char *stream, unsigned char *streamlen,
 // Check if the stream starts like a PNG file
 // 1 means yes, 0 means no.
 int detect_png(unsigned char *stream) {
+
+	HOTPOTATO
+
 	return (png_check_sig(stream, 8) == 0)? 0 : 1;
 }
 
@@ -289,6 +325,9 @@ my_error_exit(j_common_ptr cinfo)
 
 
 int detect_jpg(unsigned char *stream) {
+
+	HOTPOTATO
+
 	// This struct contains the JPEG decompression parameters and pointers to
 	// working space (which is allocated as needed by the JPEG library).
 	struct jpeg_decompress_struct cinfo;
@@ -344,6 +383,8 @@ int detect_jpg(unsigned char *stream) {
 int read_JPEG_file(unsigned char *jpg_buffer, unsigned long jpg_size,
 	unsigned char *outstream, unsigned long *outlen, int *w, int *h, int *c)
 {
+	HOTPOTATO
+
 	// This struct contains the JPEG decompression parameters and pointers to
 	// working space (which is allocated as needed by the JPEG library).
 	struct jpeg_decompress_struct cinfo;
