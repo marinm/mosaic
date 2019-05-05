@@ -69,14 +69,18 @@ typedef struct {
 	unsigned char **rows;
 	// rgblen = width*height*components
 
-	// Let any function that operates on this struct log
-	// a note using this function. Used for capturing library
-	// warnings and errors that would otherwise crash this
-	// process.
-	void         (*makenote)(const char *note);
+	// The palette is another string of RGB values,
+	// but much shorter
+	unsigned char  *palette;
+	unsigned char   palettesize;
+
+	// Capture warnings and errors from libraries that operate on this
+	// struct. This is not image meta-data. It should only be used for
+	// debugging.
+	void          (*makenote)(const char *note);
 
 	// Bookkeeping states
-	unsigned int   readprogress;
+	unsigned int    readprogress;
 } rasterimagefile;
 
 
@@ -91,15 +95,11 @@ struct {
 	rasterimagefile
 	      img;         // The user's provided image, and rgb conversion
 
-	int size;
-	int w;
-	int h;
-	int c;
+	rasterimagefile
+		  noisy;
 
 	int ispng;
 	int isjpg;
-
-	unsigned char palette[PALETTE_N * 4];
 
 	int errno;
 	char *notes;
@@ -114,12 +114,12 @@ struct {
 
 // If a function sets the errno flag, future functions should not do anything.
 // The hot potato is passed down the stack.
-#define HOTPOTATO if (request.errno != 0) {return 0;}
+#define FEELPOTATO if (request.errno != 0) {return 0;}
 
 // Requiring makes the potato hot.
 // A function should not leave dangling pointers before requiring.
 // Note that return values and errno treat 1/0 differently.
-#define REQUIRE(C)             \
+#define COOLPOTATOREQUIRES(C)             \
 	if (!(C)) {                \
 		request.errno++;       \
 		potatostack(__LINE__); \
@@ -141,11 +141,14 @@ int loaduserpng();
 int read_JPG_file(rasterimagefile *image);
 int read_PNG_file(rasterimagefile *image);
 
+int write_PNG_file(rasterimagefile *image);
+
 int copystdin();
 int loadrequest();
 
 int service_getimgattributes();
 int service_palette();
+int service_noisypng();
 
 void potatostack(int linenum);
 void makenote(const char *note);
@@ -186,23 +189,25 @@ int setup() {
 	// Zero out the raster image file handle
 	memset(&(request.img), 0, sizeof request.img);
 
-	// DO NOT alloc memory for the input file (request.img.file)
-	// The base64 conversion from client input will be done by
-	// the JSON library, which allocates memory for the binary output
+	// Do not alloc memory for img.file
+	// The base64 converter does that
 
 	// But alloc memory for the rgb conversion
 	request.img.rgb = malloc(RGB_LIMIT);
-	REQUIRE(request.img.rgb != NULL);
+	COOLPOTATOREQUIRES(request.img.rgb != NULL);
 
 	request.img.rows = malloc(ROWS_LIMIT * sizeof(void *));
-	REQUIRE(request.img.rows != NULL);
+	COOLPOTATOREQUIRES(request.img.rows != NULL);
+	
+	request.img.palette = malloc(PALETTE_N * 4);
+	COOLPOTATOREQUIRES(request.img.palette != NULL);
 
 	// And for some logging
 	// Start with an empty string
 	request.notes = calloc(1, NOTES_LIMIT);
-	REQUIRE(request.notes != NULL);
+	COOLPOTATOREQUIRES(request.notes != NULL);
 
-	REQUIRE(loadrequest());
+	COOLPOTATOREQUIRES(loadrequest());
 
 	return 1;
 }
@@ -211,10 +216,10 @@ int setup() {
 // Copy the POST payload to memory and parse the JSON contents
 int loadrequest() {
 
-	HOTPOTATO
+	FEELPOTATO
 
 	// Copy the POST payload to memory
-	REQUIRE(copystdin());
+	COOLPOTATOREQUIRES(copystdin());
 
 	// Parse JSON
 	// The parser allocates memory for its output
@@ -229,8 +234,8 @@ int loadrequest() {
 	request.post = NULL;
 
 	// An empty request 
-	REQUIRE(request.img.filelen > 0);
-	REQUIRE(request.img.file != NULL);
+	COOLPOTATOREQUIRES(request.img.filelen > 0);
+	COOLPOTATOREQUIRES(request.img.file != NULL);
 
 	return 1;
 }
@@ -241,12 +246,12 @@ int loadrequest() {
 // This function creates a new memory block.
 int copystdin() {
 
-	HOTPOTATO
+	FEELPOTATO
 
 	// Allocate a big block of memory
 	request.post = malloc(POST_LIMIT);
 
-	REQUIRE(request.post != NULL);
+	COOLPOTATOREQUIRES(request.post != NULL);
 
 	// Copy entire POST payload to memory from stdin.
 	// This is simplistic but works most of the time.
@@ -264,9 +269,9 @@ int copystdin() {
 
 int doservice() {
 
-	HOTPOTATO
+	FEELPOTATO
 
-	REQUIRE(service_getimgattributes());
+	COOLPOTATOREQUIRES(service_getimgattributes());
 
 	return 1;
 }
@@ -278,12 +283,12 @@ int printresponse() {
 
 	struct json_out out = JSON_OUT_FILE(stdout);
 	request.responselen = json_printf(&out,
-		"{errno:%d, width:%d, height:%d}\r\n",
-		request.errno, request.img.width, request.img.height
+		"{errno:%d, notes:%Q, width:%d, height:%d}\r\n",
+		request.errno, request.notes, request.img.width, request.img.height
 	);
 
 	// Still, relay whether the errno is set
-	REQUIRE(request.errno == 0);
+	COOLPOTATOREQUIRES(request.errno == 0);
 
 	return 1;
 }
@@ -304,15 +309,12 @@ int cleanup() {
 	// This was allocated in setup
 	carefulfree(request.img.rgb);
 	carefulfree(request.img.rows);
+	carefulfree(request.img.palette);
 
 	carefulfree(request.notes);
 
-	for (int i = 0; i < PALETTE_N; i++) {
-		printf(" #%02X%02X%02X ",
-		request.palette[i*3+0],
-		request.palette[i*3+1],
-		request.palette[i*3+2]);
-	}
+	
+
 	printf("\n");
 }
 
@@ -323,22 +325,22 @@ int cleanup() {
 
 int service_getimgattributes() {
 
-	HOTPOTATO
+	FEELPOTATO
 
 	request.ispng = detect_png(request.img.file);
 	request.isjpg = detect_jpg(request.img.file);
 
 	if (request.isjpg)
-		REQUIRE(loaduserjpg());
+		COOLPOTATOREQUIRES(loaduserjpg());
 
 	if (request.ispng) {
-		REQUIRE(loaduserpng());
-		REQUIRE(service_palette());
+		COOLPOTATOREQUIRES(loaduserpng());
+		COOLPOTATOREQUIRES(service_palette());
+		//COOLPOTATOREQUIRES(service_noisypng());
 	}
 
 	// The image shouldn't be too big
-	REQUIRE( request.img.height < ROWS_LIMIT );
-
+	COOLPOTATOREQUIRES( request.img.height < ROWS_LIMIT );
 
 	return 1;
 }
@@ -347,10 +349,10 @@ int service_getimgattributes() {
 // https://github.com/exoticorn/exoquant
 int service_palette() {
 
-	HOTPOTATO
+	FEELPOTATO
 
 	exq_data *pExq = exq_init();
-	REQUIRE(pExq != NULL);
+	COOLPOTATOREQUIRES(pExq != NULL);
 
 	exq_no_transparency(pExq);
 
@@ -359,27 +361,43 @@ int service_palette() {
 
 	exq_quantize(pExq, PALETTE_N);
 
-	exq_get_palette(pExq, request.palette, PALETTE_N);
+	exq_get_palette(pExq, request.img.palette, PALETTE_N);
 
 	exq_free(pExq);
+
+	for (int i = 0; i < PALETTE_N; i++) {
+		//printf(" #%02X%02X%02X ",
+		//request.img.palette[i*3+0],
+		//request.img.palette[i*3+1],
+		//request.img.palette[i*3+2]);
+	}
+
+	return 1;
+}
+
+int service_noisypng() {
+
+	FEELPOTATO
+
+	COOLPOTATOREQUIRES( write_PNG_file(NULL) == 1 );
 
 	return 1;
 }
 
 int loaduserjpg() {
 
-	HOTPOTATO
+	FEELPOTATO
 
-	REQUIRE( read_JPG_file(&(request.img)) == 1 );
+	COOLPOTATOREQUIRES( read_JPG_file(&(request.img)) == 1 );
 
 	return 1;
 }
 
 int loaduserpng() {
 
-	HOTPOTATO
+	FEELPOTATO
 
-	REQUIRE( read_PNG_file(&(request.img)) == 1 );
+	COOLPOTATOREQUIRES( read_PNG_file(&(request.img)) == 1 );
 
 	return 1;
 }
@@ -398,7 +416,7 @@ void makenote(const char *note) {
 
 void potatostack(int linenum) {
 	char note[100] = {0};
-	sprintf(note, "HOTPOTATO %d", linenum);
+	sprintf(note, "FEELPOTATO %d", linenum);
 	makenote(note);
 }
 
@@ -409,7 +427,7 @@ void potatostack(int linenum) {
 // 1 means yes, 0 means no.
 int detect_png(unsigned char *stream) {
 
-	HOTPOTATO
+	FEELPOTATO
 
 	return (png_check_sig(stream, 8) == 0)? 0 : 1;
 }
@@ -511,22 +529,22 @@ int read_PNG_file(rasterimagefile *img) {
 		my_png_warning_callback);
 	if (png_ptr == NULL) {
 		// Nothing to destroy, nothing was created
-		REQUIRE(0);
+		COOLPOTATOREQUIRES(0);
 	}
 
 	// Initialize the info interface
 	info_ptr = png_create_info_struct(png_ptr);
 	if (info_ptr == NULL) {
 		png_destroy_read_struct(&png_ptr, NULL, NULL);
-		REQUIRE(0);
+		COOLPOTATOREQUIRES(0);
 	}
-	REQUIRE(info_ptr);
+	COOLPOTATOREQUIRES(info_ptr);
 
 	// The end info interface, which does I don't know what
 	end_info = png_create_info_struct(png_ptr);
 	if (!end_info) {
 		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-		REQUIRE(0);
+		COOLPOTATOREQUIRES(0);
 	}
 
 	// If the PNG library fails it will jump to here
@@ -575,13 +593,59 @@ int read_PNG_file(rasterimagefile *img) {
 	return 1;
 }
 
+// Returns 1 on completion, 0 on quit before completion
+int write_PNG_file(rasterimagefile *img) {
+
+	FEELPOTATO
+
+	struct my_png_err_struct errorcontext;
+	errorcontext.makenote = makenote;
+
+	png_structp png_ptr;
+	png_infop info_ptr;
+
+	png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
+		(png_voidp) &errorcontext , my_png_error_callback, my_png_warning_callback);
+	if (png_ptr == NULL)
+		// Nothing to destroy
+		COOLPOTATOREQUIRES(0);
+
+	info_ptr = png_create_info_struct(png_ptr);
+	if (info_ptr == NULL) {
+		png_destroy_write_struct(&png_ptr, (png_infopp) NULL);
+		COOLPOTATOREQUIRES(0);
+	}
+
+	// Set the jump point. Indicate quit before completion.
+	if (setjmp(png_jmpbuf(png_ptr))) {
+		png_destroy_write_struct(&png_ptr, &info_ptr);
+		COOLPOTATOREQUIRES(0);
+	}
+
+	// This function returns void
+	png_set_write_fn(png_ptr, (png_voidp) img, png_user_write,
+		png_user_flush);
+
+	// Set header values
+	// Always using 8-bit-depth colour values
+	png_set_IHDR(png_ptr, info_ptr,
+		img->width, img->height, 8,
+		PNG_COLOR_TYPE_PALETTE,
+		PNG_INTERLACE_NONE,
+		PNG_COMPRESSION_TYPE_DEFAULT,
+		PNG_FILTER_TYPE_DEFAULT);
+
+	// Set the palette
+	//png_set_PLTE(png_ptr, info_ptr, img->palette, img->palettesize);
+
+	// Finish
+	png_destroy_write_struct(&png_ptr, &info_ptr);
+
+	return 1;
+}
 // Stashed notes for later use:
 
 /*
-// This set function returns void
-png_set_write_fn(png_structp write_ptr,
-	voidp write_io_ptr, png_rw_ptr write_data_fn,
-	png_flush_ptr output_flush_fn);
 */
 
 
@@ -612,7 +676,7 @@ void my_jpeg_error_callback(j_common_ptr cinfo)
 
 int detect_jpg(unsigned char *stream) {
 
-	HOTPOTATO
+	FEELPOTATO
 
 	struct jpeg_decompress_struct cinfo;
 	struct my_jpeg_error_context jerr;
@@ -642,7 +706,7 @@ int detect_jpg(unsigned char *stream) {
 // Read a JPEG file and write it as a string of RGB values
 int read_JPG_file(rasterimagefile *img)
 {
-	HOTPOTATO
+	FEELPOTATO
 
 	struct jpeg_decompress_struct cinfo;
 	struct my_jpeg_error_context jerr;
@@ -653,7 +717,7 @@ int read_JPG_file(rasterimagefile *img)
 	jerr.pub.error_exit = my_jpeg_error_callback;
 	if (setjmp(jerr.setjmp_buffer)) {
 		jpeg_destroy_decompress(&cinfo);
-		REQUIRE(0);
+		COOLPOTATOREQUIRES(0);
 	}
 
 	jpeg_create_decompress(&cinfo);
