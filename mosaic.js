@@ -43,7 +43,8 @@ function logevent(str) {
 }
 
 function bodyonload() {
-	droparea = document.getElementById('droparea');
+	//droparea = document.getElementById('droparea');
+	droparea = document.body;
 	dragdroplisteners();
 }
 

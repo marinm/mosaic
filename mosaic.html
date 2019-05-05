@@ -7,20 +7,24 @@
 </head>
 <body onload="bodyonload()">
 
-<a href="https://github.com/marinm/mosaic" id="githublink">github.com/marinm/mosaic</a>
+<div id="topbar">
+	<!-- Drop Area -->
+	<div id="droparea">
+		Drop Image Here
+	</div>
+<a href="javascript:clickupload()" id="uploadbutton"><img src="/img/imageadd.svg"></a>
+<a href="javascript:clickupload()" id="ellipsisbutton"><img src="/img/ellipsis.svg"></a>
+<!--<a href="https://github.com/marinm/mosaic" id="githublink"><img src="/img/githubmark.png"></a>-->
+</div>
 
 <div id="container">
 	<!--<img src="/img/tutorial_small.gif" id="tutorialimg">-->
 
-	<!-- Drop Area -->
-	<div id="droparea">
-		<form id="dropform">
-			<p>Drag and drop files here</p>
-			<input type="file" id="fileinput" accept="image/*" onchange="handleFiles(this.files)">
-			<label class="button" for="fileinput">Select image</label>
-		</form>
-		Drop Image Here or <a href="javascript:clickupload()">Select</a>
-	</div>
+	<form id="dropform">
+		<p>Drag and drop files here</p>
+		<input type="file" id="fileinput" accept="image/*" onchange="handleFiles(this.files)">
+		<label class="button" for="fileinput">Select image</label>
+	</form>
 
 </div>
 
