@@ -43,8 +43,7 @@ function logevent(str) {
 }
 
 function bodyonload() {
-	//droparea = document.getElementById('droparea');
-	droparea = document.body;
+	droparea = document.getElementById('droparea');
 	dragdroplisteners();
 }
 
@@ -115,11 +114,11 @@ function droparea_over(e) {
 }
 
 function droparea_on() {
-	droparea.style.borderColor = DROPAREA_ACTIVE_BORDER_COLOR;
+	//droparea.style.backgroundColor = DROPAREA_ACTIVE_BORDER_COLOR;
 }
 
 function droparea_off() {
-	droparea.style.borderColor = DROPAREA_INACTIVE_BORDER_COLOR;
+	//droparea.style.borderColor = DROPAREA_INACTIVE_BORDER_COLOR;
 }
 
 function droparea_drop(e) {
@@ -259,8 +258,17 @@ function xhr_loadend(ev) {
 
 	var response = this.response;
 
+	if (response.errno != 0) {
+		show_bad_errno(response);
+		return;
+	}
+
 	logevent('VALUES ' + response.w + 'x' + response.h + ' ispng ' + response.ispng
 		+ ' isjpg ' + response.isjpg);
+}
+
+function show_bad_errno(response) {
+	logevent('BAD ERRNO ' + response.errno);
 }
 
 //function xhr_load(ev) {

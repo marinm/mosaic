@@ -44,11 +44,12 @@ struct {
 	int   responselen; // Response length
 
 	char *userimg;
-	int   binlen;
+	int   userimglen;
 
 	int size;
 	int w;
 	int h;
+	int c;
 
 	int ispng;
 	int isjpg;
@@ -64,7 +65,7 @@ struct {
 
 // If a function sets the errno flag, future functions should not do anything.
 // The hot potato is passed down the stack.
-#define HOTPOTATO if (request.errno != 0) {printf("HOTPOTATO %d\n", __LINE__); return 0;}
+#define HOTPOTATO if (request.errno != 0) {return 0;}
 
 // Requiring makes the potato hot.
 // A function should not leave dangling pointers before requiring.
@@ -81,8 +82,8 @@ int loaduserjpg();
 int detect_png(unsigned char *stream);
 int detect_jpg(unsigned char *stream);
 
-int loadjpg(unsigned char *stream, unsigned char *streamlen,
-	unsigned char *rgb, int *w, int *h, int *c);
+int read_JPEG_file(unsigned char *jpg_buffer, unsigned long jpg_size,
+	unsigned char *outstream, unsigned long *outlen, int *w, int *h, int *c);
 
 int copystdin();
 int loadrequest();
@@ -140,7 +141,7 @@ int loadrequest() {
 	// The parser allocates memory for its output
  	json_scanf(request.post, request.postlen,
 		"{file:%V}",
-    	&(request.userimg), &(request.binlen));
+    	&(request.userimg), &(request.userimglen));
 
 	// The post body is not needed anymore
 	free(request.post);
@@ -149,7 +150,7 @@ int loadrequest() {
 	request.post = NULL;
 
 	// An empty request 
-	REQUIRE(request.binlen > 0);
+	REQUIRE(request.userimglen > 0);
 	REQUIRE(request.userimg != NULL);
 
 	return 1;
@@ -193,16 +194,17 @@ int doservice() {
 
 int printresponse() {
 
-	HOTPOTATO
-
 	// Write the response to stdout
 	printf("Content-Type: application/json; charset=utf-8;\r\n\r\n");
 
 	struct json_out out = JSON_OUT_FILE(stdout);
 	request.responselen = json_printf(&out,
-		"{w:%d, h:%d, ispng:%d, isjpg:%d}\r\n",
-		request.w, request.h, request.ispng, request.isjpg
+		"{errno:%d, w:%d, h:%d, ispng:%d, isjpg:%d}\r\n",
+		request.errno, request.w, request.h, request.ispng, request.isjpg
 	);
+
+	// Still, relay whether the errno is set
+	REQUIRE(request.errno == 0);
 
 	return 1;
 }
@@ -230,8 +232,8 @@ int service_getimgattributes() {
 	request.ispng = detect_png(request.userimg);
 	request.isjpg = detect_jpg(request.userimg);
 
-	request.w = 25;
-	request.h = 26;
+	request.w = 0;
+	request.h = 0;
 
 	if (request.isjpg)
 		REQUIRE(loaduserjpg());
@@ -243,16 +245,12 @@ int loaduserjpg() {
 
 	HOTPOTATO
 
-	return 1;
-}
-
-int loadjpg(unsigned char *stream, unsigned char *streamlen,
-	unsigned char *rgb, int *w, int *h, int *c) {
-
-	HOTPOTATO
+	REQUIRE( read_JPEG_file(request.userimg, request.userimglen,
+		NULL, NULL, &(request.w), &(request.h), &(request.c)) == 1 );
 
 	return 1;
 }
+
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -306,21 +304,19 @@ struct my_error_mgr {
   jmp_buf setjmp_buffer;      // for return to caller
 };
 
-typedef struct my_error_mgr *my_error_ptr;
-
 // Here's the routine that will replace the standard error_exit method:
-METHODDEF(void)
+void
 my_error_exit(j_common_ptr cinfo)
 {
-  // cinfo->err really points to a my_error_mgr struct, so coerce pointer
-  my_error_ptr myerr = (my_error_ptr)cinfo->err;
+	// cinfo->err really points to a my_error_mgr struct, so coerce pointer
+	struct my_error_mgr *myerr = (struct my_error_mgr *) cinfo->err;
+	
+	// Always display the message.
+	// We could postpone this until after returning, if we chose.
+	//(*cinfo->err->output_message) (cinfo);
 
-  // Always display the message.
-  // We could postpone this until after returning, if we chose.
-  (*cinfo->err->output_message) (cinfo);
-
-  // Return control to the setjmp point
-  longjmp(myerr->setjmp_buffer, 1);
+	// Return control to the setjmp point
+	longjmp(myerr->setjmp_buffer, 1);
 }
 
 
@@ -342,7 +338,6 @@ int detect_jpg(unsigned char *stream) {
 	// Establish the setjmp return context for my_error_exit to use.
 	if (setjmp(jerr.setjmp_buffer)) {
 		// If we get here, the JPEG code has signaled an error.
-		// We need to clean up the JPEG object, close the input file, and return.
 		jpeg_destroy_decompress(&cinfo);
 		return 0;
 	}
@@ -371,15 +366,13 @@ int detect_jpg(unsigned char *stream) {
 	// We can ignore the return value since suspension is not possible
 	// with the stdio data source.
 
-
 	jpeg_destroy_decompress(&cinfo);
 
 	return 1;
 }
 
 
-// Sample routine for JPEG decompression.  We assume that the source file name
-// is passed in.  We want to return 1 on success, 0 on error.
+// Read a JPEG file and write it as a string of RGB values
 int read_JPEG_file(unsigned char *jpg_buffer, unsigned long jpg_size,
 	unsigned char *outstream, unsigned long *outlen, int *w, int *h, int *c)
 {
@@ -446,33 +439,33 @@ int read_JPEG_file(unsigned char *jpg_buffer, unsigned long jpg_size,
 	// In this example, we need to make an output work buffer of the right size.
 
 	// JSAMPLEs per row in output buffer
-	row_stride = cinfo.output_width * cinfo.output_components;
+	//row_stride = cinfo.output_width * cinfo.output_components;
 
 	// Make a one-row-high sample array that will go away when done with image
-	buffer = (*cinfo.mem->alloc_sarray)
-	              ((j_common_ptr)&cinfo, JPOOL_IMAGE, row_stride, 1);
+	//buffer = (*cinfo.mem->alloc_sarray)
+	//              ((j_common_ptr)&cinfo, JPOOL_IMAGE, row_stride, 1);
 	
 	// Step 6: while (scan lines remain to be read) */
 	//           jpeg_read_scanlines(...); */
 	
 	// Here we use the library's state variable cinfo.output_scanline as the
 	// loop counter, so that we don't have to keep track ourselves.
-	int next = 0;
-	while (cinfo.output_scanline < cinfo.output_height) {
-		// jpeg_read_scanlines expects an array of pointers to scanlines.
-		// Here the array is only one element long, but you could ask for
-		// more than one scanline at a time if that's more convenient.
-		(void)jpeg_read_scanlines(&cinfo, buffer, 1);
+	//int next = 0;
+	//while (cinfo.output_scanline < cinfo.output_height) {
+	//	// jpeg_read_scanlines expects an array of pointers to scanlines.
+	//	// Here the array is only one element long, but you could ask for
+	//	// more than one scanline at a time if that's more convenient.
+	//	(void)jpeg_read_scanlines(&cinfo, buffer, 1);
 
-		// Copy the data to the output stream
-		memcpy(outstream + next, buffer[0], row_stride);
-		next += row_stride;
-	}
-	*outlen = next;
+	//	// Copy the data to the output stream
+	//	memcpy(outstream + next, buffer[0], row_stride);
+	//	next += row_stride;
+	//}
+	//*outlen = next;
 	
 	// Step 7: Finish decompression
 	
-	(void)jpeg_finish_decompress(&cinfo);
+	//(void)jpeg_finish_decompress(&cinfo);
 	// We can ignore the return value since suspension is not possible
 	// with the stdio data source.
 	

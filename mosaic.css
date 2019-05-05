@@ -16,39 +16,31 @@ body {
 	text-align: right;
 }
 
-#uploadbutton img,
-#githublink img,
-#ellipsisbutton img {
+#topbar a {
+	box-sizing: border-box;
+	display: inline-block;
+	padding: 6px 9px 6px 9px;
+	text-decoration: none;
+	border-radius: 3px;
+}
+
+#topbar a img {
 	height: 16px;
 	width: 16px;
 }
 
 #uploadbutton {
-	display: inline-block;
 	background-color: #1e824c;
-	/*border-bottom: 2px solid #27C67C;*/
-	padding: 6px 9px 6px 9px;
-	border-radius: 3px;
-	text-decoration: none;
-	color: #FFFFFF;
-	font-size: 10pt;
-	font-family: sans-serif;
-	margin: 0 30% 0 10px;
-	box-sizing: border-box;
+	margin: 0 2% 0 10px;
 }
 
 #ellipsisbutton {
-	display: inline-block;
 	background-color: #3e4141;
-	padding: 6px 9px 6px 9px;
-	border-radius: 3px;
-	text-decoration: none;
-	color: #FFFFFF;
-	font-size: 10pt;
-	font-family: sans-serif;
 	margin: 0 20px 0 0;
-	box-sizing: border-box;
 }
+
+
+
 
 
 #container {
@@ -77,28 +69,6 @@ body {
 	width: 100%;
 	background-color: #FEFCE7;
 	color: #DDDDDD;
-}
-
-#droparea {
-	display: inline-block;
-	box-sizing: border-box;
-	margin: 0 0 0 0;
-	font-size: 9pt;
-	width: 40%;
-	height: 100%;
-	padding: 10px;
-	text-align: center;
-	vertical-align: middle;
-	/*border: 1px solid #0000FF;*/
-	border-radius: 3px;
-	/*box-shadow: 0 0 0 3px #4EB2E8;*/
-	background-color: #e8ecf1;
-}
-
-#droparea a {
-	text-decoration: underline;
-	color: #0000FF;
-	font-weight: bold;
 }
 
 #progresscontainer {
