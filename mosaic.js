@@ -15,7 +15,7 @@ const STATBAR_COLR_OK                = '#00FF00';
 
 const DROPAREA_ACTIVE_BORDER_COLOR   = '#00FF00';
 const DROPAREA_INACTIVE_BORDER_COLOR = '#0000FF';
-
+// ----------------------------------------------------------------
 
 
 var applog = {timestamp: [], message: [], colr: []};
@@ -263,8 +263,7 @@ function xhr_loadend(ev) {
 		return;
 	}
 
-	logevent('VALUES ' + response.w + 'x' + response.h + ' ispng ' + response.ispng
-		+ ' isjpg ' + response.isjpg);
+	logevent('VALUES ' + response.width + 'x' + response.height);
 }
 
 function show_bad_errno(response) {

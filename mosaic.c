@@ -20,9 +20,10 @@
 #include <string.h>
 #include <setjmp.h>
 
-#include "frozen.h"
 #include "jpeglib.h"
 #include "png.h"
+#include "exoquant.h"
+#include "frozen.h"
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -35,7 +36,10 @@
 // Limit the size of the RGB expansion
 // The RGB expansion is almost certainly more than 3x larger
 // than the input file
-#define RGB_LIMIT 15000000
+#define RGB_LIMIT 30000000
+
+// Maximum image height
+#define ROWS_LIMIT 4000
 
 // Limit the size of the output PNG file
 #define PNG_LIMIT 1000000
@@ -43,23 +47,26 @@
 // Limit the capacity of notes (warnings/errors)
 #define NOTES_LIMIT 100000
 
+// Number of colours in quantization
+#define PALETTE_N 256
 
 // The common properties of various file formats representing
 // a rectangular array of colour values (i.e. raster image)
 typedef struct {
 	// The entire file should be loaded in a large array
-	unsigned char *file;
-	unsigned int   filelen;
+	unsigned char  *file;
+	unsigned int    filelen;
 
-	unsigned int   width;
-	unsigned int   height;
-	unsigned int   channels;
+	unsigned int    width;
+	unsigned int    height;
+	unsigned int    channels;
 
 	// The entire raster RGB conversion should fit in the
 	// allocated array provided (with given limit)
-	unsigned char *rgb;
-	unsigned char  rgblen;
-	unsigned char  rgblimit;
+	unsigned char  *rgb;
+	unsigned char   rgblen;
+	unsigned char   rgblimit;
+	unsigned char **rows;
 	// rgblen = width*height*components
 
 	// Let any function that operates on this struct log
@@ -91,6 +98,8 @@ struct {
 
 	int ispng;
 	int isjpg;
+
+	unsigned char palette[PALETTE_N * 4];
 
 	int errno;
 	char *notes;
@@ -136,6 +145,7 @@ int copystdin();
 int loadrequest();
 
 int service_getimgattributes();
+int service_palette();
 
 void potatostack(int linenum);
 void makenote(const char *note);
@@ -183,6 +193,9 @@ int setup() {
 	// But alloc memory for the rgb conversion
 	request.img.rgb = malloc(RGB_LIMIT);
 	REQUIRE(request.img.rgb != NULL);
+
+	request.img.rows = malloc(ROWS_LIMIT * sizeof(void *));
+	REQUIRE(request.img.rows != NULL);
 
 	// And for some logging
 	// Start with an empty string
@@ -265,8 +278,8 @@ int printresponse() {
 
 	struct json_out out = JSON_OUT_FILE(stdout);
 	request.responselen = json_printf(&out,
-		"{errno:%d, w:%d, h:%d, ispng:%d, isjpg:%d}\r\n",
-		request.errno, request.img.width, request.img.height, request.ispng, request.isjpg
+		"{errno:%d, width:%d, height:%d}\r\n",
+		request.errno, request.img.width, request.img.height
 	);
 
 	// Still, relay whether the errno is set
@@ -290,7 +303,17 @@ int cleanup() {
 
 	// This was allocated in setup
 	carefulfree(request.img.rgb);
+	carefulfree(request.img.rows);
+
 	carefulfree(request.notes);
+
+	for (int i = 0; i < PALETTE_N; i++) {
+		printf(" #%02X%02X%02X ",
+		request.palette[i*3+0],
+		request.palette[i*3+1],
+		request.palette[i*3+2]);
+	}
+	printf("\n");
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -298,10 +321,6 @@ int cleanup() {
 
 // -- SERVICES --------------------------------------------------------
 
-// Input:
-//   - a PNG/JPG file loaded entirely in long array
-// Output:
-//
 int service_getimgattributes() {
 
 	HOTPOTATO
@@ -312,8 +331,37 @@ int service_getimgattributes() {
 	if (request.isjpg)
 		REQUIRE(loaduserjpg());
 
-	if (request.ispng)
+	if (request.ispng) {
 		REQUIRE(loaduserpng());
+		REQUIRE(service_palette());
+	}
+
+	// The image shouldn't be too big
+	REQUIRE( request.img.height < ROWS_LIMIT );
+
+
+	return 1;
+}
+
+// Use the exoquant library
+// https://github.com/exoticorn/exoquant
+int service_palette() {
+
+	HOTPOTATO
+
+	exq_data *pExq = exq_init();
+	REQUIRE(pExq != NULL);
+
+	exq_no_transparency(pExq);
+
+	exq_feed(pExq, request.img.rgb,
+		request.img.width * request.img.height);
+
+	exq_quantize(pExq, PALETTE_N);
+
+	exq_get_palette(pExq, request.palette, PALETTE_N);
+
+	exq_free(pExq);
 
 	return 1;
 }
@@ -492,6 +540,9 @@ int read_PNG_file(rasterimagefile *img) {
 	// Provide the read callback
 	png_set_read_fn(png_ptr, img, png_user_read);
 
+	// Set dimension limits
+	png_set_user_limits(png_ptr, ROWS_LIMIT, ROWS_LIMIT);
+
 	// Provide the write callback
 	//png_set_write_fn(png_ptr, img, png_user_write, png_user_flush);
 
@@ -506,6 +557,17 @@ int read_PNG_file(rasterimagefile *img) {
 	(*img).width = png_get_image_width(png_ptr, info_ptr);
 	(*img).height = png_get_image_height(png_ptr, info_ptr);
 	(*img).channels = png_get_channels(png_ptr, info_ptr);
+
+	// Set up the row pointers
+	// EXPECT EXACTLY 3 BYTES PER PIXEL
+	for (int i = 0; i < (*img).height; i++)
+		(*img).rows[i] = (*img).rgb + (i * (*img).width * 3);
+
+	// Read the whole image at once
+	png_read_image(png_ptr, (*img).rows);
+
+	// This may not be necessary but it seems neat to do it anyways
+	png_read_end(png_ptr, end_info);
 
 	// Free memory we don't need anymore
 	png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
@@ -540,7 +602,7 @@ void my_jpeg_error_callback(j_common_ptr cinfo)
 {
 	struct my_jpeg_error_context *myerr =
 		(struct my_jpeg_error_context *) cinfo->err;
-	
+
 	//(*cinfo->err->output_message) (cinfo);
 
 	// Return control to the setjmp point

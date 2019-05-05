@@ -5,7 +5,7 @@ CCSTD=-std=c11
 all: server client
 
 server: mosaic.c
-	gcc mosaic.c -lfrozen -lpng -ljpeg -g -o mosaic.cgi
+	gcc mosaic.c -lgifenc -lexoquant -lfrozen -lpng -ljpeg -lm -g -o mosaic.cgi
 
 client: mosaic.html mosaic.css mosaic.js mosaic.cgi
 	cp -u mosaic.cgi   /var/www/cgi
