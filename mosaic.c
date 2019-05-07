@@ -32,13 +32,14 @@
 // Limit the size of the client's request text
 #define POST_LIMIT 5000000
 
+// Maximum image height
+#define ROWS_LIMIT 4000
+
 // Limit the size of the RGB expansion
 // The RGB expansion is almost certainly more than 3x larger
 // than the input file
-#define RGB_LIMIT 30000000
-
-// Maximum image height
-#define ROWS_LIMIT 4000
+// 4000*4000*3 = 48000000
+#define RGB_LIMIT 100000000
 
 // Limit the size of the output PNG file
 #define PNG_LIMIT 1000000
@@ -100,10 +101,13 @@ struct {
 	rasterimagefile
 		  noisy;
 
-	int ispng;
-	int isjpg;
+	rasterimagefile    // The palette as a 16x16 PNG
+	      palettepng;
 
-	int errno;
+	int   ispng;
+	int   isjpg;
+
+	int   errno;
 	char *notes;
 } request;
 
@@ -114,6 +118,9 @@ int setup();
 int doservice();
 int printresponse();
 int cleanup();
+
+int free_rasterimagefile(rasterimagefile *img);
+int create_rasterimagefile(rasterimagefile *img);
 
 int write_default_palette();
 
@@ -203,29 +210,21 @@ int setup() {
 	// The errno indicates if future functions should even execute.
 	request.errno = 0;
 
-	// Zero out the raster image file handle
-	memset(&(request.img), 0, sizeof request.img);
-
-	// Do not alloc memory for img.file
-	// The base64 converter does that
-
-	// But alloc memory for the rgb conversion
-	request.img.rgb = malloc(RGB_LIMIT);
-	COOLPOTATOREQUIRES(request.img.rgb != NULL);
-
-	request.img.rows = malloc(ROWS_LIMIT * sizeof(void *));
-	COOLPOTATOREQUIRES(request.img.rows != NULL);
-	
-	request.img.palette = malloc(PALETTE_N * 4);
-	COOLPOTATOREQUIRES(request.img.palette != NULL);
 
 	// And for some logging
 	// Start with an empty string
 	request.notes = calloc(1, NOTES_LIMIT);
 	COOLPOTATOREQUIRES(request.notes != NULL);
 
+	// The image objects
+	COOLPOTATOREQUIRES( create_rasterimagefile(&request.img) );
+	COOLPOTATOREQUIRES( create_rasterimagefile(&request.palettepng) );
+
+	// If the request image file cannot be parsed, then return
+	// a default palette
 	COOLPOTATOREQUIRES(write_default_palette());
 
+	// Start processing the request...
 	COOLPOTATOREQUIRES(loadrequest());
 
 	return 1;
@@ -330,16 +329,10 @@ int cleanup() {
 	// The JSON parser allocates a big chunk for the base64 conversion
 	carefulfree(request.img.file);
 
-	// This was allocated in setup
-	carefulfree(request.img.rgb);
-	carefulfree(request.img.rows);
-	carefulfree(request.img.palette);
+	free_rasterimagefile(&(request.img));
+	free_rasterimagefile(&(request.palettepng));
 
 	carefulfree(request.notes);
-
-	
-
-	printf("\n");
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -424,12 +417,65 @@ int loaduserpng() {
 	return 1;
 }
 
+// Create a 16x16 raster image file (PNG) where each of the 256 pixels are
+// from the palette
+int palette_to_png() {
+
+}
+
 
 ///////////////////////////////////////////////////////////////////////
 
 
-// -- COLOURSTRING ------------------------------------------------------------
+// -- COLOURSTRING --------------------------------------------------------
 
+
+// Create a malloc'd rasterimagefile object and also malloc all inner
+// arrays to some pre-set capacity.
+int create_rasterimagefile(rasterimagefile *newimg) {
+
+	// Zero out the raster image file handle
+	memset(newimg, 0, sizeof(rasterimagefile));
+
+	// Explicity NULLing it here as a reminder that the file should
+	// come from elsewhere.
+	newimg->file = NULL;
+	newimg->filelen = 0;
+
+	// But alloc memory for the rgb conversion
+
+	// RGB string of user image
+	newimg->rgb = malloc(RGB_LIMIT);
+	if (newimg->rgb == NULL) {
+		free_rasterimagefile(newimg);
+		return 0;
+	}
+
+	newimg->rows = malloc(ROWS_LIMIT * sizeof(void *));
+	if (newimg->rows == NULL) {
+		free_rasterimagefile(newimg);
+		return 0;
+	}
+
+	newimg->palette = malloc(PALETTE_N * 4);
+	if (newimg->palette == NULL) {
+		free_rasterimagefile(newimg);
+		return 0;
+	}
+
+	// Everything worked.
+
+	return 1;
+}
+
+int free_rasterimagefile(rasterimagefile *img) {
+	if (img == NULL)
+		return 1;
+	free(img->rgb);
+	free(img->rows);
+	free(img->palette);
+	return 1;
+}
 
 
 // SECTION PNG
