@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <setjmp.h>
+#include <sys/time.h>
 
 #include "jpeglib.h"
 #include "png.h"
@@ -86,6 +87,9 @@ typedef struct {
 	unsigned int    readprogress;
 } rasterimagefile;
 
+// For benchmarking
+typedef unsigned long long timestamp_t;
+
 
 // Global/singleton handle
 struct {
@@ -109,7 +113,13 @@ struct {
 
 	int   errno;
 	char *notes;
+
+	timestamp_t
+	      start;
+	timestamp_t
+	      finish;
 } request;
+
 
 
 // -- FORWARD DECLARATIONS ----------------------------------------------
@@ -144,6 +154,7 @@ int service_noisypng();
 
 void potatostack(int linenum);
 void makenote(const char *note);
+
 
 
 // -- MAIN ------------------------------------------------------------
@@ -200,12 +211,22 @@ void potatostack(int linenum) {
 #endif
 }
 
+timestamp_t get_timestamp ()
+{
+  struct timeval now;
+  gettimeofday(&now, NULL);
+  return now.tv_usec + (timestamp_t)now.tv_sec * 1000000;
+}
+
 
 // -- MOSAIC ----------------------------------------------------------
 
 int setup() {
 	// Zero out the request context
 	memset(&request, 0, sizeof request);
+
+	// Start the stopwatch...
+	request.start = get_timestamp();
 
 	// The errno indicates if future functions should even execute.
 	request.errno = 0;
@@ -296,18 +317,25 @@ int doservice() {
 
 int printresponse() {
 
+	// Stop the stopwatch...
+	request.finish = get_timestamp();
+
+	// Run time up till now, in milliseconds
+    unsigned long millisec = (request.finish - request.start) / 1000L;
+
 	// Write the response to stdout
 	printf("Content-Type: application/json; charset=utf-8;\r\n\r\n");
 
 	struct json_out out = JSON_OUT_FILE(stdout);
 	request.responselen = json_printf(&out,
-		"{errno:%d, width:%d, height:%d, palette:%M}\r\n",
-		request.errno, request.img.width, request.img.height,
+		"{errno:%d, ptime:%lu, width:%d, height:%d, palette:%M}\r\n",
+		request.errno, millisec, request.img.width, request.img.height,
 		json_printf_array, request.img.palette, PALETTE_N, sizeof(char) * 3, "\"#%06x\""
 	);
 
 #ifdef DEBUG
 	printf("NOTES: %s\n", request.notes);
+	printf("Latency: %lu ms\n", millisec);
 #endif
 
 	// Still, relay whether the errno is set
@@ -328,11 +356,8 @@ int cleanup() {
 	free_rasterimagefile(&(request.palettepng));
 
 	free(request.notes);
-	request.notes = NULL;
-	free(request.notes);
 }
 
-///////////////////////////////////////////////////////////////////////
 
 
 // -- SERVICES --------------------------------------------------------
