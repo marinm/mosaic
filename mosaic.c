@@ -317,22 +317,19 @@ int printresponse() {
 }
 
 
-void carefulfree(void *ptr) {
-	if (ptr != NULL)
-		free(ptr);
-}
-
 int cleanup() {
 	// Must check for NULLs because an error could have been relayed to
 	// this point (cleanup is the last in the hot potato chain)
 
 	// The JSON parser allocates a big chunk for the base64 conversion
-	carefulfree(request.img.file);
+	free(request.img.file);
 
 	free_rasterimagefile(&(request.img));
 	free_rasterimagefile(&(request.palettepng));
 
-	carefulfree(request.notes);
+	free(request.notes);
+	request.notes = NULL;
+	free(request.notes);
 }
 
 ///////////////////////////////////////////////////////////////////////
