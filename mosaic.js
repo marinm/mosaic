@@ -264,10 +264,18 @@ function xhr_loadend(ev) {
 	}
 
 	logevent(JSON.stringify(response));
+
+	showpng(response.palettepng);
 }
 
 function show_bad_errno(response) {
 	logevent('BAD ERRNO ' + response.errno);
+}
+
+// Given a base64-encoded PNG file string, show it
+function showpng(b64str) {
+	const src = 'data:image/png;base64,' + b64str;
+	document.body.style.background = "url('" + src + "') repeat";
 }
 
 //function xhr_load(ev) {

@@ -60,6 +60,7 @@ typedef struct {
 	// The entire file should be loaded in a large array
 	unsigned char  *file;
 	unsigned int    filelen;
+	unsigned long   filelimit;
 
 	unsigned int    width;
 	unsigned int    height;
@@ -69,14 +70,18 @@ typedef struct {
 	// allocated array provided (with given limit)
 	unsigned char  *rgb;
 	unsigned char   rgblen;
-	unsigned char   rgblimit;
+	unsigned long   rgblimit;
 	unsigned char **rows;
 	// rgblen = width*height*components
 
 	// The palette is another string of RGB values,
 	// but much shorter
 	unsigned char  *palette;
-	unsigned char   palettesize;
+	unsigned int    palettecount;
+
+	// Detect file type
+	int             ispng;
+	int             isjpg;
 
 	// Capture warnings and errors from libraries that operate on this
 	// struct. This is not image meta-data. It should only be used for
@@ -85,6 +90,7 @@ typedef struct {
 
 	// Bookkeeping states
 	unsigned int    readprogress;
+	unsigned int    num_unwritten;
 } rasterimagefile;
 
 // For benchmarking
@@ -107,9 +113,6 @@ struct {
 
 	rasterimagefile    // The palette as a 16x16 PNG
 	      palettepng;
-
-	int   ispng;
-	int   isjpg;
 
 	int   errno;
 	char *notes;
@@ -143,14 +146,16 @@ int loaduserpng();
 int read_JPG_file(rasterimagefile *image);
 int read_PNG_file(rasterimagefile *image);
 
-int write_PNG_file(rasterimagefile *image);
+int write_png(rasterimagefile *image);
+int palette_to_png();
 
 int copystdin();
 int loadrequest();
 
+int make_palette();
 int service_getimgattributes();
-int service_palette();
 int service_noisypng();
+int service_copy();
 
 void potatostack(int linenum);
 void makenote(const char *note);
@@ -310,7 +315,12 @@ int doservice() {
 
 	FEELPOTATO
 
+	// Read image dimensions and palette
 	COOLPOTATOREQUIRES(service_getimgattributes());
+
+	if (request.img.ispng)
+		// Create a palette image and convert to PNG file
+		COOLPOTATOREQUIRES(palette_to_png());
 
 	return 1;
 }
@@ -328,14 +338,14 @@ int printresponse() {
 
 	struct json_out out = JSON_OUT_FILE(stdout);
 	request.responselen = json_printf(&out,
-		"{errno:%d, ptime:%lu, width:%d, height:%d, palette:%M}\r\n",
+		"{errno:%d, ptime:%lu, width:%d, height:%d, palettepng:%V}\r\n",
 		request.errno, millisec, request.img.width, request.img.height,
-		json_printf_array, request.img.palette, PALETTE_N, sizeof(char) * 3, "\"#%06x\""
+		request.palettepng.file, request.palettepng.filelen
 	);
 
 #ifdef DEBUG
 	printf("NOTES: %s\n", request.notes);
-	printf("Latency: %lu ms\n", millisec);
+	printf("unwritten %d\n", request.palettepng.num_unwritten);
 #endif
 
 	// Still, relay whether the errno is set
@@ -346,12 +356,10 @@ int printresponse() {
 
 
 int cleanup() {
-	// Must check for NULLs because an error could have been relayed to
-	// this point (cleanup is the last in the hot potato chain)
-
 	// The JSON parser allocates a big chunk for the base64 conversion
-	free(request.img.file);
 
+	// The file stream in every rasterimagefile object is allocated
+	// externally, but freed by free_rasterimagefile
 	free_rasterimagefile(&(request.img));
 	free_rasterimagefile(&(request.palettepng));
 
@@ -365,22 +373,24 @@ int cleanup() {
 int write_default_palette() {
 	for (int i = 0; i < PALETTE_N; i++)
 		request.img.palette[i] = 0xF0;
+
+	for (int i = 0; i < PALETTE_N; i++)
+		request.palettepng.palette[i] = 0xF0;
 }
 
 int service_getimgattributes() {
 
 	FEELPOTATO
 
-	request.ispng = detect_png(request.img.file);
-	request.isjpg = detect_jpg(request.img.file);
+	request.img.ispng = detect_png(request.img.file);
+	request.img.isjpg = detect_jpg(request.img.file);
 
-	if (request.isjpg)
+	if (request.img.isjpg)
 		COOLPOTATOREQUIRES(loaduserjpg());
 
-	if (request.ispng) {
+	if (request.img.ispng) {
 		COOLPOTATOREQUIRES(loaduserpng());
-		COOLPOTATOREQUIRES(service_palette());
-		//COOLPOTATOREQUIRES(service_noisypng());
+		COOLPOTATOREQUIRES(make_palette(&request.img));
 	}
 
 	// The image shouldn't be too big
@@ -391,23 +401,54 @@ int service_getimgattributes() {
 
 // Use the exoquant library
 // https://github.com/exoticorn/exoquant
-int service_palette() {
+int make_palette(rasterimagefile *img) {
 
 	FEELPOTATO
 
+	// ** This library works only with RGBA streams **
+	// ** Need to make a temporary copy of the data **
+	unsigned long npixels = img->width * img->height;
+	unsigned char *rgba = malloc(npixels * 4);
+	COOLPOTATOREQUIRES(rgba != NULL);
+
+	// Also need a separate copy of the palette
+	// It will need to be stripped of the alpha channel
+	unsigned char *palette = malloc(npixels * 4);
+	if (palette == NULL) {
+		free(rgba);
+		return 0;
+	}
+
 	exq_data *pExq = exq_init();
-	COOLPOTATOREQUIRES(pExq != NULL);
+	if (pExq == NULL) {
+		free(rgba);
+		return 0;
+	}
+
+	// Expand RGB to RGBA
+	for (int i = 0; i < npixels; i++) {
+		rgba[i*4 + 0] = img->rgb[i*3 + 0];
+		rgba[i*4 + 1] = img->rgb[i*3 + 1];
+		rgba[i*4 + 2] = img->rgb[i*3 + 2];
+		rgba[i*4 + 3] = 0xFF;
+	}
 
 	exq_no_transparency(pExq);
+	exq_feed(pExq, rgba, npixels);
 
-	exq_feed(pExq, request.img.rgb,
-		request.img.width * request.img.height);
-
-	exq_quantize(pExq, PALETTE_N);
-
-	exq_get_palette(pExq, request.img.palette, PALETTE_N);
-
+	exq_quantize(pExq, img->palettecount);
+	exq_get_palette(pExq, palette, img->palettecount);
 	exq_free(pExq);
+
+	// Copy the palette and strip the alpha channel
+	for (int i = 0; i < img->palettecount; i++) {
+		img->palette[i*3 + 0] = palette[i*4 + 0];
+		img->palette[i*3 + 1] = palette[i*4 + 1];
+		img->palette[i*3 + 2] = palette[i*4 + 2];
+	}
+
+	free(palette);
+	free(rgba);
 
 	return 1;
 }
@@ -416,7 +457,7 @@ int service_noisypng() {
 
 	FEELPOTATO
 
-	COOLPOTATOREQUIRES( write_PNG_file(NULL) == 1 );
+	COOLPOTATOREQUIRES( write_png(NULL) == 1 );
 
 	return 1;
 }
@@ -443,6 +484,31 @@ int loaduserpng() {
 // from the palette
 int palette_to_png() {
 
+	// Initialize
+	request.palettepng.filelen = 0;
+	request.palettepng.file = malloc(request.palettepng.filelimit);
+	COOLPOTATOREQUIRES(request.palettepng.file != NULL);
+
+	// Copy the palette from the client image to the palettepng image
+	memcpy(request.palettepng.palette, request.img.palette,
+		request.img.palettecount * 3);
+
+	// Create the palette RGB string
+	// ** Assume the palette is 8-bit RGB **
+	for (int i = 0; i < 256; i++)
+		request.palettepng.rgb[i] = (unsigned char) i;
+
+	// Set up the row pointers
+	for (int i = 0; i < 16; i++)
+		request.palettepng.rows[i] = request.palettepng.rgb + (16*i);
+
+	request.palettepng.width = 16;
+	request.palettepng.height = 16;
+	request.palettepng.channels = 3;
+
+	COOLPOTATOREQUIRES( write_png(&request.palettepng) );
+
+	return 1;
 }
 
 
@@ -464,22 +530,29 @@ int create_rasterimagefile(rasterimagefile *newimg) {
 	newimg->file = NULL;
 	newimg->filelen = 0;
 
+	// Some pre-set fixed values
+	newimg->channels = 3;
+	newimg->rgblimit = RGB_LIMIT;
+	newimg->filelimit = PNG_LIMIT;
+	newimg->makenote = makenote;
+	newimg->palettecount = PALETTE_N;
+
 	// But alloc memory for the rgb conversion
 
 	// RGB string of user image
-	newimg->rgb = malloc(RGB_LIMIT);
+	newimg->rgb = calloc(RGB_LIMIT, 1);
 	if (newimg->rgb == NULL) {
 		free_rasterimagefile(newimg);
 		return 0;
 	}
 
-	newimg->rows = malloc(ROWS_LIMIT * sizeof(void *));
+	newimg->rows = calloc(ROWS_LIMIT * sizeof(void *), 1);
 	if (newimg->rows == NULL) {
 		free_rasterimagefile(newimg);
 		return 0;
 	}
 
-	newimg->palette = malloc(PALETTE_N * 4);
+	newimg->palette = calloc(PALETTE_N * 4, 1);
 	if (newimg->palette == NULL) {
 		free_rasterimagefile(newimg);
 		return 0;
@@ -493,6 +566,7 @@ int create_rasterimagefile(rasterimagefile *newimg) {
 int free_rasterimagefile(rasterimagefile *img) {
 	if (img == NULL)
 		return 1;
+	free(img->file);
 	free(img->rgb);
 	free(img->rows);
 	free(img->palette);
@@ -547,6 +621,8 @@ void my_png_warning_callback(png_structp png_ptr,
 	longjmp(errorcontext->error_jmp, 1);
 }
 
+
+
 // PNG user-provided read data callback
 void png_user_read(png_structp png_ptr,
 	png_bytep dest, png_size_t length) {
@@ -568,30 +644,6 @@ void png_user_read(png_structp png_ptr,
 	img->readprogress += progress;
 }
 
-// PNG user-provided write data callback
-void png_user_write(png_structp png_ptr,
-	png_bytep data, png_size_t length) {
-
-	// The file handle
-	rasterimagefile *img = png_get_io_ptr(png_ptr);
-
-	// Space left in the write stream
-	unsigned int remaining = img->rgblimit - img->rgblen;
-
-	// Write the lesser of length vs. remaining
-	unsigned int progress = (length < remaining)? length : remaining;
-
-	// ASSUME THIS WORKS
-	memcpy(img->rgb + img->rgblen, data, progress);
-
-	// Move forward
-	img->rgblen += progress;
-}
-
-// PNG user-provided flush data callback
-void png_user_flush(png_structp png_ptr) {
-	// ....?
-}
 
 int read_PNG_file(rasterimagefile *img) {
 
@@ -640,12 +692,12 @@ int read_PNG_file(rasterimagefile *img) {
 	// Set dimension limits
 	png_set_user_limits(png_ptr, ROWS_LIMIT, ROWS_LIMIT);
 
-	// Provide the write callback
-	//png_set_write_fn(png_ptr, img, png_user_write, png_user_flush);
-
 	// Let unknown chunks get discarded
 	// Do not provide a row read event callback
 	// Use the default dimensions limit (1 million by 1 million)
+
+	// Before starting reading...
+	(*img).readprogress = 0;
 
 	// Read the image header data
 	// This function returns void
@@ -672,8 +724,44 @@ int read_PNG_file(rasterimagefile *img) {
 	return 1;
 }
 
+// PNG user-provided write data callback
+void png_user_write(png_structp png_ptr,
+	png_bytep data, png_size_t length) {
+
+	// The file handle
+	rasterimagefile *img = png_get_io_ptr(png_ptr);
+
+	// Space left in the write stream
+	unsigned int remaining = img->filelimit - img->filelen;
+
+	// Write the lesser of length vs. remaining
+	unsigned int progress = (length < remaining)? length : remaining;
+
+	// If the limit was exceeded, keep track of how many bytes
+	// are being discarded
+	if (length > remaining) {
+		img->num_unwritten += length - remaining;
+		return;
+	}
+
+	// ASSUME THIS WORKS
+	memcpy(img->file + img->filelen, data, progress);
+
+	// Move forward
+	img->filelen += progress;
+}
+
+
+// PNG user-provided flush data callback
+void png_user_flush(png_structp png_ptr) {
+	// ....?
+}
+
+// Writes a rasterimagefile to PNG.
+// ** The rgb stream is read as 8-bit palette indices **
+// ** Output is always in the 256-colour space **
 // Returns 1 on completion, 0 on quit before completion
-int write_PNG_file(rasterimagefile *img) {
+int write_png(rasterimagefile *img) {
 
 	FEELPOTATO
 
@@ -696,17 +784,13 @@ int write_PNG_file(rasterimagefile *img) {
 	}
 
 	// Set the jump point. Indicate quit before completion.
-	if (setjmp(png_jmpbuf(png_ptr))) {
+	if (setjmp(errorcontext.error_jmp)) {
 		png_destroy_write_struct(&png_ptr, &info_ptr);
 		COOLPOTATOREQUIRES(0);
 	}
 
-	// This function returns void
-	png_set_write_fn(png_ptr, (png_voidp) img, png_user_write,
-		png_user_flush);
-
 	// Set header values
-	// Always using 8-bit-depth colour values
+	// ** Always using 8-bit-depth colour values **
 	png_set_IHDR(png_ptr, info_ptr,
 		img->width, img->height, 8,
 		PNG_COLOR_TYPE_PALETTE,
@@ -714,8 +798,25 @@ int write_PNG_file(rasterimagefile *img) {
 		PNG_COMPRESSION_TYPE_DEFAULT,
 		PNG_FILTER_TYPE_DEFAULT);
 
-	// Set the palette
-	//png_set_PLTE(png_ptr, info_ptr, img->palette, img->palettesize);
+	// This function returns void
+	png_set_write_fn(png_ptr, (png_voidp) img, png_user_write,
+		png_user_flush);
+
+	// Set the compression level
+	png_set_compression_level(png_ptr, PNG_Z_DEFAULT_COMPRESSION);
+
+	// Set the palette. png_color_struct is just a char-3-tuple R,G,B
+	// ** palettecount should be 8 **
+	png_set_PLTE(png_ptr, info_ptr, (png_colorp) img->palette,
+		img->palettecount);
+
+	// Set the data
+	png_set_rows(png_ptr, info_ptr, img->rows);
+
+	img->num_unwritten = 0;
+
+	// ** How to check if this worked? **
+	png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
 
 	// Finish
 	png_destroy_write_struct(&png_ptr, &info_ptr);
