@@ -264,7 +264,6 @@ function xhr_loadend(ev) {
 	}
 
 	logevent('VALUES ' + response.width + 'x' + response.height);
-	logevent('NOTES ' + response.notes);
 }
 
 function show_bad_errno(response) {

@@ -4,15 +4,16 @@
 //
 // SECTIONS IN THIS FILE
 //   * Includes
+//   * Limits
 //   * Global variables
-//   * Function declarations
+//   * Forward declarations
 //   * Main
 //   * Mosaic
 //   * Services
 //   * Colourstring
 //
 
-// -- INCLUDES --------------------------------------------------------
+// -- INCLUDES ------------------------------------------------------------
 
 #include <assert.h>
 #include <stdio.h>
@@ -25,10 +26,8 @@
 #include "exoquant.h"
 #include "frozen.h"
 
-///////////////////////////////////////////////////////////////////////
 
-
-// -- GLOBAL VARIABLES --------------------------------------------------------
+// -- LIMITS --------------------------------------------------------------
 
 // Limit the size of the client's request text
 #define POST_LIMIT 5000000
@@ -49,6 +48,9 @@
 
 // Number of colours in quantization
 #define PALETTE_N 256
+
+
+// -- GLOBAL VARIABLES ----------------------------------------------------
 
 // The common properties of various file formats representing
 // a rectangular array of colour values (i.e. raster image)
@@ -106,31 +108,12 @@ struct {
 } request;
 
 
-
-///////////////////////////////////////////////////////////////////////////////
-
-
-// -- FUNCTIONS DECLARATIONS --------------------------------------------------
-
-// If a function sets the errno flag, future functions should not do anything.
-// The hot potato is passed down the stack.
-#define FEELPOTATO if (request.errno != 0) {return 0;}
-
-// Requiring makes the potato hot.
-// A function should not leave dangling pointers before requiring.
-// Note that return values and errno treat 1/0 differently.
-#define COOLPOTATOREQUIRES(C)             \
-	if (!(C)) {                \
-		request.errno++;       \
-		potatostack(__LINE__); \
-		return 0;              \
-	}
+// -- FORWARD DECLARATIONS ----------------------------------------------
 
 int setup();
 int doservice();
 int printresponse();
 int cleanup();
-
 
 int detect_png(unsigned char *stream);
 int detect_jpg(unsigned char *stream);
@@ -153,8 +136,6 @@ int service_noisypng();
 void potatostack(int linenum);
 void makenote(const char *note);
 
-///////////////////////////////////////////////////////////////////////////////
-
 
 // -- MAIN ------------------------------------------------------------
 
@@ -175,6 +156,40 @@ int main() {
 }
 
 ///////////////////////////////////////////////////////////////////////
+
+
+// -- DEVELOPMENT -----------------------------------------------------
+
+// If a function sets the errno flag, future functions should not do anything.
+// The hot potato is passed down the stack.
+#define FEELPOTATO if (request.errno != 0) {return 0;}
+
+// Requiring makes the potato hot.
+// A function should not leave dangling pointers before requiring.
+// Note that return values and errno treat 1/0 differently.
+#define COOLPOTATOREQUIRES(C)             \
+	if (!(C)) {                \
+		request.errno++;       \
+		potatostack(__LINE__); \
+		return 0;              \
+	}
+
+// Add a note to the log
+void makenote(const char *note) {
+#ifdef DEBUG
+	strcat(request.notes, note);
+	strcat(request.notes, "; ");
+#endif
+}
+
+// Record which line number a REQUIRE returned on
+void potatostack(int linenum) {
+#ifdef DEBUG
+	char note[100] = {0};
+	sprintf(note, "FEELPOTATO %d", linenum);
+	makenote(note);
+#endif
+}
 
 
 // -- MOSAIC ----------------------------------------------------------
@@ -283,9 +298,13 @@ int printresponse() {
 
 	struct json_out out = JSON_OUT_FILE(stdout);
 	request.responselen = json_printf(&out,
-		"{errno:%d, notes:%Q, width:%d, height:%d}\r\n",
-		request.errno, request.notes, request.img.width, request.img.height
+		"{errno:%d, width:%d, height:%d}\r\n",
+		request.errno, request.img.width, request.img.height
 	);
+
+#ifdef DEBUG
+	printf("NOTES: %s\n", request.notes);
+#endif
 
 	// Still, relay whether the errno is set
 	COOLPOTATOREQUIRES(request.errno == 0);
@@ -365,13 +384,6 @@ int service_palette() {
 
 	exq_free(pExq);
 
-	for (int i = 0; i < PALETTE_N; i++) {
-		//printf(" #%02X%02X%02X ",
-		//request.img.palette[i*3+0],
-		//request.img.palette[i*3+1],
-		//request.img.palette[i*3+2]);
-	}
-
 	return 1;
 }
 
@@ -408,17 +420,6 @@ int loaduserpng() {
 
 // -- COLOURSTRING ------------------------------------------------------------
 
-// Add a note to the log
-void makenote(const char *note) {
-	strcat(request.notes, note);
-	strcat(request.notes, "; ");
-}
-
-void potatostack(int linenum) {
-	char note[100] = {0};
-	sprintf(note, "FEELPOTATO %d", linenum);
-	makenote(note);
-}
 
 
 // SECTION PNG
