@@ -263,7 +263,7 @@ function xhr_loadend(ev) {
 		return;
 	}
 
-	logevent('VALUES ' + response.width + 'x' + response.height);
+	logevent(JSON.stringify(response));
 }
 
 function show_bad_errno(response) {

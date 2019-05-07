@@ -115,6 +115,8 @@ int doservice();
 int printresponse();
 int cleanup();
 
+int write_default_palette();
+
 int detect_png(unsigned char *stream);
 int detect_jpg(unsigned char *stream);
 
@@ -222,6 +224,8 @@ int setup() {
 	request.notes = calloc(1, NOTES_LIMIT);
 	COOLPOTATOREQUIRES(request.notes != NULL);
 
+	COOLPOTATOREQUIRES(write_default_palette());
+
 	COOLPOTATOREQUIRES(loadrequest());
 
 	return 1;
@@ -298,8 +302,9 @@ int printresponse() {
 
 	struct json_out out = JSON_OUT_FILE(stdout);
 	request.responselen = json_printf(&out,
-		"{errno:%d, width:%d, height:%d}\r\n",
-		request.errno, request.img.width, request.img.height
+		"{errno:%d, width:%d, height:%d, palette:%M}\r\n",
+		request.errno, request.img.width, request.img.height,
+		json_printf_array, request.img.palette, PALETTE_N, sizeof(char) * 3, "\"#%06x\""
 	);
 
 #ifdef DEBUG
@@ -341,6 +346,11 @@ int cleanup() {
 
 
 // -- SERVICES --------------------------------------------------------
+
+int write_default_palette() {
+	for (int i = 0; i < PALETTE_N; i++)
+		request.img.palette[i] = 0xF0;
+}
 
 int service_getimgattributes() {
 
