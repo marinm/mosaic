@@ -27,7 +27,34 @@ var tiles16  = ' ';
 var tiles8   = ' ';
 
 var droparea = null;
+var elapsed = null;
+var starttime = 0;
 
+function startstopwatch() {
+	starttime = Date.now();
+	elapsed = setInterval(updatestopwatch, 100);
+	animatewait();
+}
+
+function stopstopwatch() {
+	clearInterval(elapsed);
+	animatestop();
+}
+
+function updatestopwatch() {
+	var stopwatch = document.getElementById('stopwatch');
+	stopwatch.innerText = 'Elapsed Time: ' + (Date.now() - starttime).toString();
+}
+
+function animatewait() {
+	document.getElementById('uploadbutton').style.background =
+		"url('/img/example.gif') repeat";
+}
+
+function animatestop() {
+	document.getElementById('uploadbutton').style.background =
+		'#2ecc71';
+}
 
 
 function pad(n) {
@@ -147,6 +174,10 @@ function droparea_drop(e) {
 
 // Load a file from client's local system
 function loadfile(file) {
+
+	// The request begins...
+	startstopwatch();
+
 	var reader = new FileReader();
 
 	reader.onabort     = fr_abort;
@@ -161,10 +192,23 @@ function loadfile(file) {
 	reader.readAsDataURL(file);
 }
 
-function fr_abort(ev)     { logevent('FR_ABORT');     }
-function fr_error(ev)     { logevent('FR_ERROR');     }
-function fr_load(ev)      { logevent('FR_LOAD');      }
-function fr_loadstart(ev) { logevent('FR_LOADSTART'); }
+function fr_abort(ev) {
+	logevent('FR_ABORT');
+	stopstopwatch();
+}
+
+function fr_error(ev) {
+	logevent('FR_ERROR');
+	stopstopwatch();
+}
+
+function fr_load(ev) {
+	logevent('FR_LOAD');
+}
+
+function fr_loadstart(ev) {
+	logevent('FR_LOADSTART');
+}
 
 function fr_progress(ev) {
 	if (ev.lengthComputable)
@@ -243,6 +287,8 @@ function xhr_done(xhr)             { logevent('XHR_STATUS_DONE');             }
 
 function xhr_loadend(ev) {
 	logevent('XHR_LOADEND');
+
+	stopstopwatch();
 
 	switch (this.status) {
 	case 200 : logevent('SERVER RESPONSE OK'    ); break;
