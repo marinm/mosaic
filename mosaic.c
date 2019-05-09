@@ -44,8 +44,8 @@
 // 4000*4000*3 = 48000000
 #define RGB_LIMIT 100000000
 
-// Limit the size of the output PNG file
-#define PNG_LIMIT 1000000
+// Limit the size of the output file
+#define FILE_LIMIT 10000000
 
 // Limit the capacity of notes (warnings/errors)
 #define NOTES_LIMIT 100000
@@ -65,7 +65,7 @@ enum {RIF_FTYPE_PNG, RIF_FTYPE_JPEG, RIF_FTYPE_OTHER};
 typedef struct {
 	// The entire file should be loaded in a large array
 	unsigned char  *file;
-	unsigned int    filelen;
+	unsigned long    filelen;
 	unsigned long   filelimit;
 
 	// Whether the file is PNG, JPEG, or other
@@ -78,7 +78,7 @@ typedef struct {
 	// The entire raster RGB conversion should fit in the
 	// allocated array provided (with given limit)
 	unsigned char  *rgb;
-	unsigned char   rgblen;
+	unsigned long   rgblen;
 	unsigned long   rgblimit;
 	unsigned char **rows;
 	// rgblen = width*height*components
@@ -140,10 +140,11 @@ int create_rif(rif *img);
 
 int write_default_palette(rif *image);
 
-int load_rif_file(rif *image);
+int unpack_rif(rif *image);
 int read_JPG_file(rif *image);
 int read_PNG_file(rif *image);
 
+int write_JPG_file(rif *img);
 int write_png(rif *image);
 
 int copystdin();
@@ -151,7 +152,7 @@ int loadrequest();
 
 int make_palette();
 int getimgattributes();
-int service_noisypng();
+int noisyjpg();
 int service_copy();
 
 void potatostack(int linenum);
@@ -215,6 +216,12 @@ void potatostack(int linenum) {
 #endif
 }
 
+void debugprint(char *str) {
+#ifdef DEBUG
+	printf("%s\n", str);
+#endif
+}
+
 timestamp_t get_timestamp ()
 {
   struct timeval now;
@@ -270,6 +277,9 @@ int loadrequest() {
 		"{file:%V}",
     	&(request.img.file), &(request.img.filelen));
 
+	// Resize the file memory block to capacity
+	request.img.file = realloc(request.img.file, FILE_LIMIT);
+
 	// The post body is not needed anymore
 	free(request.post);
 
@@ -312,8 +322,8 @@ int doservice() {
 	FEELPOTATO
 
 	// Read image dimensions and palette
-	CHECK(getimgattributes());
-
+	//CHECK(getimgattributes());
+	CHECK(noisyjpg());
 	return 1;
 }
 
@@ -332,7 +342,7 @@ int printresponse() {
 	request.responselen = json_printf(&out,
 		"{errno:%d, ptime:%lu, width:%d, height:%d, palettepng:%V}\r\n",
 		request.errno, millisec, request.img.width, request.img.height,
-		request.palettepng.file, request.palettepng.filelen
+		request.img.file, request.img.filelen
 	);
 
 #ifdef DEBUG
@@ -368,7 +378,26 @@ int write_default_palette(rif *img) {
 }
 
 int getimgattributes() {
-	load_rif_file(&request.img);
+	CHECK( unpack_rif(&request.img) );
+	return 1;
+}
+
+int noisyjpg() {
+
+	FEELPOTATO
+
+	rif *img = &request.img;
+	srand(0);
+
+	img->width = 400;
+	img->height = 400;
+	img->channels = 3;
+	img->rgblen = img->width * img->height * img->channels;
+
+	for (int i = 0; i < img->rgblen; i++)
+		img->rgb[i] = rand() % 256;
+
+	CHECK(write_JPG_file(img));
 	return 1;
 }
 
@@ -443,7 +472,7 @@ int create_rif(rif *newimg) {
 	// Some pre-set fixed values
 	newimg->channels = 3;
 	newimg->rgblimit = RGB_LIMIT;
-	newimg->filelimit = PNG_LIMIT;
+	newimg->filelimit = FILE_LIMIT;
 	newimg->makenote = makenote;
 	newimg->palettecount = PALETTE_N;
 
@@ -484,7 +513,7 @@ int free_rif(rif *img) {
 }
 
 
-int load_rif_file(rif *img) {
+int unpack_rif(rif *img) {
 	if (read_JPG_file(img) == 1)
 		return 1;
 	if (read_PNG_file(img) == 1)
@@ -681,9 +710,10 @@ int write_png(rif *img) {
 
 	png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
 		(png_voidp) &errorcontext , my_png_error_callback, my_png_warning_callback);
-	if (png_ptr == NULL)
+	if (png_ptr == NULL) {
 		// Nothing to destroy
 		HOTPOTATO
+	}
 
 	info_ptr = png_create_info_struct(png_ptr);
 	if (info_ptr == NULL) {
@@ -694,13 +724,14 @@ int write_png(rif *img) {
 	// Set the jump point. Indicate quit before completion.
 	if (setjmp(errorcontext.error_jmp)) {
 		png_destroy_write_struct(&png_ptr, &info_ptr);
+		return 0;
 	}
 
 	// Set header values
 	// ** Always using 8-bit-depth colour values **
 	png_set_IHDR(png_ptr, info_ptr,
 		img->width, img->height, 8,
-		PNG_COLOR_TYPE_PALETTE,
+		PNG_COLOR_TYPE_RGB,
 		PNG_INTERLACE_NONE,
 		PNG_COMPRESSION_TYPE_DEFAULT,
 		PNG_FILTER_TYPE_DEFAULT);
@@ -714,8 +745,8 @@ int write_png(rif *img) {
 
 	// Set the palette. png_color_struct is just a char-3-tuple R,G,B
 	// ** palettecount should be 8 **
-	png_set_PLTE(png_ptr, info_ptr, (png_colorp) img->palette,
-		img->palettecount);
+	//png_set_PLTE(png_ptr, info_ptr, (png_colorp) img->palette,
+	//		img->palettecount);
 
 	// Set the data
 	png_set_rows(png_ptr, info_ptr, img->rows);
@@ -754,7 +785,7 @@ void jerrcallback(j_common_ptr cinfo)
 	//(*cinfo->err->output_message) (cinfo);
 
 #ifdef DEBUG
-	printf("JPEG error callback: %d %d\n", img->filelen, img->rgblen);
+	printf("JPEG error callback: %lu %lu\n", img->filelen, img->rgblen);
 #endif
 
 	// Return control to the setjmp point
@@ -827,17 +858,18 @@ int read_JPG_file(rif *img)
 	img->height   = cinfo.image_height;
 	img->channels = cinfo.output_components;
 
-	// Start decompression instance
-	(void)jpeg_start_decompress(&cinfo);
-
-	if (img->width < 0 || img->height < 0) {
+	if (img->width == 0 || img->height == 0) {
 		jpeg_destroy_decompress(&cinfo);
-		HOTPOTATO
+		return 0;
 	}
 
 	// Set decompression parameters
 	cinfo.scale_num = 1;
-	cinfo.scale_denom = 8;
+	cinfo.quantize_colors = TRUE;
+	cinfo.desired_number_of_colors = 16;
+
+	// Start decompression instance
+	(void)jpeg_start_decompress(&cinfo);
 
 	// Row physical size
 	row_stride = cinfo.output_width * cinfo.output_components;
@@ -859,7 +891,98 @@ int read_JPG_file(rif *img)
 	
 	// At this point you may want to check to see whether any corrupt-data
 	// warnings occurred (test whether jerr.pub.num_warnings is nonzero).
+
+	// The image was read completely
+	img->isjpg = 1;
 	
+	return 1;
+}
+
+int write_JPG_file(rif *img) {
+	// jpeglib interface
+	struct jpeg_compress_struct cinfo;
+
+	// Error manager
+	struct jerrcontext jerr;
+	jerr.img = img;
+
+	// Pointer to a single row
+	JSAMPROW row_pointer[1];
+
+	// Physical row width in output buffer
+	int row_stride;
+
+	// The default behaviour is to write compressed output to newly
+	// allocated output and return a pointer to it. For now, just copy
+	// that output to the rif and free the newfile when done.
+	unsigned char *newfile = NULL;
+	unsigned long newfilelen = 0;
+
+	// Override the default error routine	
+	cinfo.err = jpeg_std_error(&jerr.pub);
+	jerr.pub.error_exit = jerrcallback;
+	if (setjmp(jerr.jmpmark)) {
+		jpeg_destroy_compress(&cinfo);
+
+		// The newfile is allocated later, but in case of error, the
+		// process returns back here.
+		free(newfile);
+		return 0;
+	}
+
+	// Initialize a compression instance
+	// Do this after setting the error callbacks
+	(void) jpeg_create_compress(&cinfo);
+
+	// Set the output destination and capacity
+	(void) jpeg_mem_dest(&cinfo, &newfile, &newfilelen);
+
+	// Describe the pixel format
+	cinfo.image_width = img->width;
+	cinfo.image_height = img->height;
+	cinfo.input_components = img->channels;
+	cinfo.in_color_space = JCS_RGB;
+
+	// Set all defaults after setting color space
+	(void) jpeg_set_defaults(&cinfo);
+
+	// Initialize the compression process
+	(void) jpeg_start_compress(&cinfo, TRUE);
+	// The second parameter tells whether a complete JPEG interchange
+	// datastream should be written. This is true in most cases.
+
+	// JSAMPLEs per row in buffer
+	row_stride = img->width * img->channels;
+
+	// jpeg_abort() should be called before finishing if not all of the
+	// scanlines have been processed
+	while (cinfo.next_scanline < cinfo.image_height) {
+	    row_pointer[0] = img->rgb + (cinfo.next_scanline * row_stride);
+		if (jpeg_write_scanlines(&cinfo, row_pointer, 1) != 1)
+			break;
+	}
+
+	// Were all scanlines written?
+	if (cinfo.next_scanline < cinfo.image_height) {
+		(void) jpeg_destroy_compress(&cinfo);
+		free(newfile);
+		return 0;
+	}
+
+	// Complete the compression cycle. This step ensures that the last
+	// bufferload of data is written to the destination. It also
+	// releases working memory for this instance.
+	(void) jpeg_finish_compress(&cinfo);
+
+	(void) jpeg_destroy_compress(&cinfo);
+
+	// Copy the contents of the temporary memory space
+	memcpy(img->file, newfile, newfilelen);
+	img->filelen = newfilelen;
+
+	// Done with the temporary memory space
+	free(newfile);
+
 	return 1;
 }
 

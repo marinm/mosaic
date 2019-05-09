@@ -10,9 +10,11 @@ const POST_REQUEST_TIMEOUT           = 10 * 1000;
 
 const STATBAR_STR_CUTOFF             = 50;
 
-const STATBAR_COLR_FAIL              = '#FFBCBC';
+const STATBAR_COLR_FAIL              = '#f22613';
 const STATBAR_COLR_OK                = '#00FF00';
 
+const DROPAREA_ACTIVE_BG_COLOR       = '#D1E1F9';
+const DROPAREA_INACTIVE_BG_COLOR     = '#eaf2ff';
 const DROPAREA_ACTIVE_BORDER_COLOR   = '#00FF00';
 const DROPAREA_INACTIVE_BORDER_COLOR = '#0000FF';
 // ----------------------------------------------------------------
@@ -42,20 +44,15 @@ function stopstopwatch() {
 }
 
 function updatestopwatch() {
-	var stopwatch = document.getElementById('stopwatch');
-	stopwatch.innerText = 'Elapsed Time: ' + (Date.now() - starttime).toString();
+	//var stopwatch = document.getElementById('stopwatch');
+	//stopwatch.innerText = 'Elapsed Time: ' + (Date.now() - starttime).toString();
 }
 
 function animatewait() {
-	document.getElementById('uploadbutton').style.background =
-		"url('/img/example.gif') repeat";
 }
 
 function animatestop() {
-	document.getElementById('uploadbutton').style.background =
-		'#2ecc71';
 }
-
 
 function pad(n) {
     return (n<10) ? '0'+n : n;
@@ -132,20 +129,22 @@ function droparea_enter(e) {
 
 	logevent('DRAG ENTER ' + dt.items.length);
 	logevent('DROP EFFECT ' + dt.dropEffect);
-	
+
 	droparea_on();
 }
 
 function droparea_over(e) {
-	// Do nothing...
+	droparea_on();
 }
 
 function droparea_on() {
-	//droparea.style.backgroundColor = DROPAREA_ACTIVE_BORDER_COLOR;
+	droparea.style.backgroundColor = DROPAREA_INACTIVE_BG_COLOR;
+	document.getElementById('dragover_goodtodrop').style.display = 'none';
 }
 
 function droparea_off() {
-	//droparea.style.borderColor = DROPAREA_INACTIVE_BORDER_COLOR;
+	droparea.style.backgroundColor = DROPAREA_ACTIVE_BG_COLOR;
+	document.getElementById('dragover_goodtodrop').style.display = 'block';
 }
 
 function droparea_drop(e) {
@@ -232,6 +231,7 @@ function send_post(str) {
 	var xhr = new XMLHttpRequest();
 
 	xhr.open('POST', SERVER_RESOURCE);
+	logevent('SENDING ' + str.length + ' bytes');
 
 	xhr.responseType = SERVER_RESPONSE_TYPE;
 	xhr.timeout = POST_REQUEST_TIMEOUT;
@@ -311,7 +311,7 @@ function xhr_loadend(ev) {
 
 	logevent(JSON.stringify(response));
 
-	showpng(response.palettepng);
+	showjpg(response.palettepng);
 }
 
 function show_bad_errno(response) {
@@ -322,6 +322,11 @@ function show_bad_errno(response) {
 function showpng(b64str) {
 	const src = 'data:image/png;base64,' + b64str;
 	document.body.style.background = "url('" + src + "') repeat";
+}
+
+function showjpg(b64str) {
+	const src = 'data:image/jpeg;base64,' + b64str;
+	droparea.style.background = "url('" + src + "') repeat";
 }
 
 //function xhr_load(ev) {
