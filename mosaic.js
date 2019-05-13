@@ -2,45 +2,30 @@
 
 // APP CONFIGURATION
 // --------------------------------- - ----------------------------
-const SERVER_RESOURCE                = '/cgi/mosaic.cgi';
+const DEBUG                          = false;
+const SERVER_RESOURCE                = '/cgi/mosaic.py';
 const SERVER_RESPONSE_TYPE           = 'json';
 const MAX_FILESIZE                   = 4000000;
-
 const POST_REQUEST_TIMEOUT           = 10 * 1000;
-
 const STATBAR_STR_CUTOFF             = 50;
 
 const STATBAR_COLR_FAIL              = '#f22613';
 const STATBAR_COLR_OK                = '#00FF00';
-
-const DROPAREA_ACTIVE_BG_COLOR       = '#D1E1F9';
-const DROPAREA_INACTIVE_BG_COLOR     = '#eaf2ff';
-const DROPAREA_ACTIVE_BORDER_COLOR   = '#00FF00';
-const DROPAREA_INACTIVE_BORDER_COLOR = '#0000FF';
 // ----------------------------------------------------------------
 
 
 var applog = {timestamp: [], message: [], colr: []};
 
-var tiles128 = ' ';
-var tiles64  = ' ';
-var tiles32  = ' ';
-var tiles16  = ' ';
-var tiles8   = ' ';
-
-var droparea = null;
 var elapsed = null;
 var starttime = 0;
 
 function startstopwatch() {
 	starttime = Date.now();
 	elapsed = setInterval(updatestopwatch, 100);
-	animatewait();
 }
 
 function stopstopwatch() {
 	clearInterval(elapsed);
-	animatestop();
 }
 
 function updatestopwatch() {
@@ -48,42 +33,19 @@ function updatestopwatch() {
 	//stopwatch.innerText = 'Elapsed Time: ' + (Date.now() - starttime).toString();
 }
 
-function animatewait() {
-}
-
-function animatestop() {
-}
-
 function pad(n) {
     return (n<10) ? '0'+n : n;
 }
+
+function timestamp() {
+	const now = new Date(Date.now());
+	return pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' +
+		   pad(now.getSeconds()) + '.' + now.getMilliseconds();
+}
  
 function logevent(str) {
-	const now = new Date(Date.now());
-	const timestamp = pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' +
-		pad(now.getSeconds()) + '.' + now.getMilliseconds();
-
-	console.log(timestamp + ' ' + str);
-}
-
-function bodyonload() {
-	droparea = document.getElementById('droparea');
-	dragdroplisteners();
-}
-
-function dragdroplisteners() {
-	droparea.addEventListener('dragenter' , preventDefaults, false);
-	droparea.addEventListener('dragleave' , preventDefaults, false);
-	droparea.addEventListener('dragover'  , preventDefaults, false);
-	droparea.addEventListener('drop'      , preventDefaults, false);
-
-	droparea.addEventListener('dragenter' , droparea_enter,  false);
-	droparea.addEventListener('dragover'  , droparea_over,   false);
-
-	droparea.addEventListener('dragleave' , droparea_off,    false);
-	droparea.addEventListener('drop'      , droparea_off,    false);
-
-	droparea.addEventListener('drop'      , droparea_drop,   false)
+	if (DEBUG)
+		console.log(timestamp() + ' ' + str);
 }
 
 function preventDefaults(e) {
@@ -114,14 +76,9 @@ function hidestatus() {
 	hideelement('statusbar');
 }
 
-function hideelement(id) {
-	document.getElementById(id).style.display = 'none';
-}
-
-
 function droparea_enter(e) {
 	// The DataTransfer object
-	const dt = e.dataTransfer;
+	const dt = e.originalEvent.dataTransfer;
 
 	// Only handle the data transfer if there is at least one file
 	if (!dt.types.includes('Files'))
@@ -133,23 +90,23 @@ function droparea_enter(e) {
 	droparea_on();
 }
 
-function droparea_over(e) {
-	droparea_on();
-}
-
 function droparea_on() {
-	droparea.style.backgroundColor = DROPAREA_INACTIVE_BG_COLOR;
-	document.getElementById('dragover_goodtodrop').style.display = 'none';
+	//$("#droparea").removeClass("droparea_off");
+	$("#droparea").attr("class", "droparea_on");
+	//$("#droparea").addClass("droparea_on");
+	//$("#dragovericon").fadeOut(100);
 }
 
 function droparea_off() {
-	droparea.style.backgroundColor = DROPAREA_ACTIVE_BG_COLOR;
-	document.getElementById('dragover_goodtodrop').style.display = 'block';
+	$("#droparea").attr("class", "droparea_off");
+	//$("#droparea").removeClass("droparea_on");
+	//$("#droparea").addClass("droparea_off");
+	//$("#dragovericon").fadeIn(100);
 }
 
 function droparea_drop(e) {
 	// The DataTransfer object
-	const dt = e.dataTransfer;
+	const dt = e.originalEvent.dataTransfer;
 
 	logevent('DROP ' + dt.items.length + ' ITEMS');
 	logevent('DROP EFFECT ' + dt.dropEffect);
@@ -304,14 +261,9 @@ function xhr_loadend(ev) {
 
 	var response = this.response;
 
-	if (response.errno != 0) {
-		show_bad_errno(response);
-		return;
-	}
-
-	logevent(JSON.stringify(response));
-
-	showjpg(response.palettepng);
+	logevent('response: ' + JSON.stringify(response));
+	//logevent('E' + response.errno + ' ' + response.width + 'x' + response.height + 'rgblen ' + response.rgblen);
+	showPNG(response.img);
 }
 
 function show_bad_errno(response) {
@@ -319,14 +271,14 @@ function show_bad_errno(response) {
 }
 
 // Given a base64-encoded PNG file string, show it
-function showpng(b64str) {
-	const src = 'data:image/png;base64,' + b64str;
-	document.body.style.background = "url('" + src + "') repeat";
-}
+function showPNG(b64str) {
+	// Remove the dragover icon, it won't be used anymore
+	$("#dragovericon").remove();
 
-function showjpg(b64str) {
-	const src = 'data:image/jpeg;base64,' + b64str;
-	droparea.style.background = "url('" + src + "') repeat";
+	// Show the response image
+	const src = 'data:image/png;base64,' + b64str;
+	$("#responseimg").attr("src", src);
+	$("#responseimg").fadeIn(200);
 }
 
 //function xhr_load(ev) {
@@ -347,3 +299,29 @@ function showjpg(b64str) {
 //	}
 //
 //}
+
+// When the DOM has been loaded completely...
+$(document).ready(function() {
+	// Prevent defaults...
+	$("#droparea").on('dragenter' , preventDefaults);
+	$("#droparea").on('dragleave' , preventDefaults);
+	$("#droparea").on('dragover'  , preventDefaults);
+	$("#droparea").on('drop'      , preventDefaults);
+
+	// Drag-over behaviour
+	$("#droparea").on('dragenter' , droparea_enter);
+	$("#droparea").on('dragleave' , droparea_off);
+	$("#droparea").on('drop'      , droparea_off);
+	$("#droparea").on('drop'      , droparea_drop)
+
+	// Make the contained image behave as part of the drop area
+	$("#responseimg").on('dragenter' , preventDefaults);
+	$("#responseimg").on('dragleave' , preventDefaults);
+	$("#responseimg").on('dragover'  , preventDefaults);
+	$("#responseimg").on('drop'      , preventDefaults);
+	$("#responseimg").on('dragenter' , droparea_on);
+	$("#responseimg").on('dragover' , droparea_on);
+	$("#responseimg").on('dragleave' , droparea_on);
+	$("#responseimg").on('drop'      , droparea_off);
+	$("#responseimg").on('drop'      , droparea_drop)
+});

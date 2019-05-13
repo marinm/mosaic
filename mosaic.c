@@ -8,7 +8,7 @@
 // SECTIONS IN THIS FILE
 //   * Includes
 //   * Limits
-//   * Global variables
+//   * Master struct, Global variables
 //   * Forward declarations
 //   * Main
 //   * Stages
@@ -28,6 +28,9 @@
 #include "png.h"
 #include "exoquant.h"
 #include "frozen.h"
+
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+#include "stb_image_resize.h"
 
 
 // -- LIMITS --------------------------------------------------------------
@@ -53,6 +56,9 @@
 // Number of colours in quantization
 #define PALETTE_N 256
 
+// Resize image to these dimensions
+#define FIT_W 400
+#define FIT_H 400
 
 // -- GLOBAL VARIABLES ----------------------------------------------------
 
@@ -65,7 +71,7 @@ enum {RIF_FTYPE_PNG, RIF_FTYPE_JPEG, RIF_FTYPE_OTHER};
 typedef struct {
 	// The entire file should be loaded in a large array
 	unsigned char  *file;
-	unsigned long    filelen;
+	unsigned long   filelen;
 	unsigned long   filelimit;
 
 	// Whether the file is PNG, JPEG, or other
@@ -74,6 +80,9 @@ typedef struct {
 	unsigned int    width;
 	unsigned int    height;
 	unsigned int    channels;
+
+	// Enumerated colourspace (grayscale, RGB, etc.)
+	unsigned int    colorspace;
 
 	// The entire raster RGB conversion should fit in the
 	// allocated array provided (with given limit)
@@ -92,11 +101,6 @@ typedef struct {
 	int             ispng;
 	int             isjpg;
 
-	// Capture warnings and errors from libraries that operate on this
-	// struct. This is not image meta-data. It should only be used for
-	// debugging.
-	void          (*makenote)(const char *note);
-
 	// Bookkeeping states
 	unsigned int    readprogress;
 	unsigned int    num_unread;
@@ -108,7 +112,7 @@ typedef struct {
 typedef unsigned long long timestamp_t;
 
 
-// Global/singleton handle
+// Master struct
 struct {
 	unsigned char  *post;        // The client's complete POST request text
 	unsigned long   postlen;     // POST payload length
@@ -117,10 +121,9 @@ struct {
 	unsigned long   responselen; // Response length
 
 	rif             img;         // The user's provided image, and rgb conversion
-	rif             palettepng;  // The palette as a 16x16 PNG
+	rif             resized;
 
 	unsigned int    errno;
-	unsigned char  *notes;
 
 	timestamp_t     start;
 	timestamp_t     finish;
@@ -138,26 +141,23 @@ int cleanup();
 int free_rif(rif *img);
 int create_rif(rif *img);
 
-int write_default_palette(rif *image);
-
 int unpack_rif(rif *image);
 int read_JPG_file(rif *image);
 int read_PNG_file(rif *image);
-
 int write_JPG_file(rif *img);
 int write_png(rif *image);
+int rifresize(rif *img, rif *resized);
 
 int copystdin();
 int loadrequest();
 
 int make_palette();
 int getimgattributes();
-int noisyjpg();
 int service_copy();
+int imgresize();
+
 
 void potatostack(int linenum);
-void makenote(const char *note);
-
 
 
 // -- MAIN ------------------------------------------------------------
@@ -178,19 +178,17 @@ int main() {
 	return 0;
 }
 
-///////////////////////////////////////////////////////////////////////
-
 
 // -- DEVELOPMENT -----------------------------------------------------
 
-// If a function sets the errno flag, future functions should not do anything.
-// The hot potato is passed down the stack.
+// If a function sets the errno flag, future functions should not do
+// anything. The hot potato is passed along.
 #define FEELPOTATO \
 		if (request.errno != 0) {return 0;}
 
-#define HOTPOTATO              \
-		request.errno++;       \
-		potatostack(__LINE__); \
+#define HOTPOTATO                     \
+		if (request.errno == 0)       \
+			request.errno = __LINE__; \
 		return 0;
 
 // Requiring makes the potato hot.
@@ -198,35 +196,11 @@ int main() {
 // Note that return values and errno treat 1/0 differently.
 #define CHECK(C)  if (!(C)) { HOTPOTATO }
 
-
-// Add a note to the log
-void makenote(const char *note) {
-#ifdef DEBUG
-	strcat(request.notes, note);
-	strcat(request.notes, "; ");
-#endif
-}
-
-// Record which line number a REQUIRE returned on
-void potatostack(int linenum) {
-#ifdef DEBUG
-	char note[100] = {0};
-	sprintf(note, "FEELPOTATO %d", linenum);
-	makenote(note);
-#endif
-}
-
-void debugprint(char *str) {
-#ifdef DEBUG
-	printf("%s\n", str);
-#endif
-}
-
 timestamp_t get_timestamp ()
 {
-  struct timeval now;
-  gettimeofday(&now, NULL);
-  return now.tv_usec + (timestamp_t)now.tv_sec * 1000000;
+	struct timeval now;
+	gettimeofday(&now, NULL);
+	return now.tv_usec + (timestamp_t)now.tv_sec * 1000000;
 }
 
 
@@ -242,22 +216,12 @@ int setup() {
 	// The errno indicates if future functions should even execute.
 	request.errno = 0;
 
-	// And for some logging
-	// Start with an empty string
-	request.notes = calloc(1, NOTES_LIMIT);
-	CHECK(request.notes != NULL);
-
 	// The image objects
 	CHECK( create_rif(&request.img) );
-	CHECK( create_rif(&request.palettepng) );
-
-	// If the request image file cannot be parsed, then return
-	// a default palette
-	CHECK(write_default_palette(&request.img));
-	CHECK(write_default_palette(&request.palettepng));
+	CHECK( create_rif(&request.resized) );
 
 	// Start processing the request...
-	CHECK(loadrequest());
+	CHECK( loadrequest() );
 
 	return 1;
 }
@@ -273,22 +237,20 @@ int loadrequest() {
 
 	// Parse JSON
 	// The parser allocates memory for its output
- 	json_scanf(request.post, request.postlen,
-		"{file:%V}",
+ 	json_scanf(request.post, request.postlen, "{file:%V}",
     	&(request.img.file), &(request.img.filelen));
 
 	// Resize the file memory block to capacity
 	request.img.file = realloc(request.img.file, FILE_LIMIT);
 
 	// The post body is not needed anymore
+	// Null it out just to be safe
 	free(request.post);
-
-	// Just to be extra safe...
 	request.post = NULL;
 
 	// An empty request 
-	CHECK(request.img.filelen > 0);
-	CHECK(request.img.file != NULL);
+	CHECK( request.img.filelen > 0 );
+	CHECK( request.img.file != NULL );
 
 	return 1;
 }
@@ -322,8 +284,10 @@ int doservice() {
 	FEELPOTATO
 
 	// Read image dimensions and palette
-	//CHECK(getimgattributes());
-	CHECK(noisyjpg());
+	CHECK(getimgattributes());
+
+	CHECK(imgresize());
+	CHECK(write_JPG_file(&request.img));
 	return 1;
 }
 
@@ -335,20 +299,18 @@ int printresponse() {
 	// Run time up till now, in milliseconds
     unsigned long millisec = (request.finish - request.start) / 1000L;
 
+#ifndef JSON_ONLY
 	// Write the response to stdout
 	printf("Content-Type: application/json; charset=utf-8;\r\n\r\n");
+#endif
 
 	struct json_out out = JSON_OUT_FILE(stdout);
 	request.responselen = json_printf(&out,
-		"{errno:%d, ptime:%lu, width:%d, height:%d, palettepng:%V}\r\n",
+		"{errno:%d, ptime:%lu, width:%d, height:%d, rgblen:%d, img:%V}\r\n",
 		request.errno, millisec, request.img.width, request.img.height,
+		request.img.rgblen,
 		request.img.file, request.img.filelen
 	);
-
-#ifdef DEBUG
-	printf("NOTES: %s\n", request.notes);
-	printf("unwritten %d\n", request.palettepng.num_unwritten);
-#endif
 
 	// Still, relay whether the errno is set
 	CHECK(request.errno == 0);
@@ -363,41 +325,22 @@ int cleanup() {
 	// The file stream in every rif object is allocated
 	// externally, but freed by free_rif
 	free_rif(&(request.img));
-	free_rif(&(request.palettepng));
-
-	free(request.notes);
 }
-
 
 
 // -- RASTERIMAGEFILE ROUTINES --------------------------------------------
 
-int write_default_palette(rif *img) {
-	for (int i = 0; i < PALETTE_N; i++)
-		img->palette[i] = 0xF0;
-}
-
 int getimgattributes() {
+	FEELPOTATO
 	CHECK( unpack_rif(&request.img) );
 	return 1;
 }
 
-int noisyjpg() {
-
+int imgresize() {
 	FEELPOTATO
-
-	rif *img = &request.img;
-	srand(0);
-
-	img->width = 400;
-	img->height = 400;
-	img->channels = 3;
-	img->rgblen = img->width * img->height * img->channels;
-
-	for (int i = 0; i < img->rgblen; i++)
-		img->rgb[i] = rand() % 256;
-
-	CHECK(write_JPG_file(img));
+	request.resized.width = FIT_W;
+	request.resized.height = FIT_H;
+	CHECK( rifresize(&request.img, &request.resized) );
 	return 1;
 }
 
@@ -473,7 +416,6 @@ int create_rif(rif *newimg) {
 	newimg->channels = 3;
 	newimg->rgblimit = RGB_LIMIT;
 	newimg->filelimit = FILE_LIMIT;
-	newimg->makenote = makenote;
 	newimg->palettecount = PALETTE_N;
 
 	// But alloc memory for the rgb conversion
@@ -524,8 +466,6 @@ int unpack_rif(rif *img) {
 // SECTION PNG
 
 struct my_png_err_struct {
-	// A callback for saving the error message
-	void (*makenote)(const char *note);
 	// Where to return
 	jmp_buf error_jmp;
 };
@@ -537,9 +477,6 @@ void my_png_error_callback(png_structp png_ptr,
 	struct my_png_err_struct *errorcontext =
 		png_get_error_ptr(png_ptr);
 
-	// Save the message
-	errorcontext->makenote(error_msg);
-
 	// Jump back to the calling function
 	longjmp(errorcontext->error_jmp, 1);
 }
@@ -550,9 +487,6 @@ void my_png_warning_callback(png_structp png_ptr,
 	// Get the error struct
 	struct my_png_err_struct *errorcontext =
 		png_get_error_ptr(png_ptr);
-
-	// Save the message
-	errorcontext->makenote(warning_msg);
 
 	// Jump back to the calling function
 	longjmp(errorcontext->error_jmp, 1);
@@ -588,8 +522,9 @@ int read_PNG_file(rif *img) {
 	png_infop info_ptr;
 	png_infop end_info;
 
+	unsigned int row_stride;
+
 	struct my_png_err_struct errorcontext;
-	errorcontext.makenote = makenote;
 
 	// Initialize a reading context with error callbacks
 	png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING,
@@ -644,13 +579,19 @@ int read_PNG_file(rif *img) {
 	(*img).height = png_get_image_height(png_ptr, info_ptr);
 	(*img).channels = png_get_channels(png_ptr, info_ptr);
 
+	row_stride = (*img).width * 3;
+
 	// Set up the row pointers
 	// EXPECT EXACTLY 3 BYTES PER PIXEL
 	for (int i = 0; i < (*img).height; i++)
-		(*img).rows[i] = (*img).rgb + (i * (*img).width * 3);
+		(*img).rows[i] = (*img).rgb + (i * row_stride);
+
+	png_set_expand(png_ptr);
 
 	// Read the whole image at once
 	png_read_image(png_ptr, (*img).rows);
+
+	img->rgblen = (*img).height * row_stride;
 
 	// This may not be necessary but it seems neat to do it anyways
 	png_read_end(png_ptr, end_info);
@@ -703,7 +644,6 @@ int write_png(rif *img) {
 	FEELPOTATO
 
 	struct my_png_err_struct errorcontext;
-	errorcontext.makenote = makenote;
 
 	png_structp png_ptr;
 	png_infop info_ptr;
@@ -780,12 +720,10 @@ void jerrcallback(j_common_ptr cinfo)
 {
 	struct jerrcontext *jerr = (struct jerrcontext *) cinfo->err;
 
-	rif *img  = jerr->img;
-
-	//(*cinfo->err->output_message) (cinfo);
-
 #ifdef DEBUG
-	printf("JPEG error callback: %lu %lu\n", img->filelen, img->rgblen);
+	rif *img  = jerr->img;
+	printf("JPEG error callback: decompressor? (%d) global state (%d), %lu %lu\n",
+		cinfo->is_decompressor, cinfo->global_state, img->filelen, img->rgblen);
 #endif
 
 	// Return control to the setjmp point
@@ -852,24 +790,20 @@ int read_JPG_file(rif *img)
 		HOTPOTATO
 	}
 
-	// Copy the properties. These dimensions refer to the original
-	// image, not necessarily the output if scaling is used
-	img->width    = cinfo.image_width;
-	img->height   = cinfo.image_height;
-	img->channels = cinfo.output_components;
-
-	if (img->width == 0 || img->height == 0) {
-		jpeg_destroy_decompress(&cinfo);
-		return 0;
-	}
-
 	// Set decompression parameters
-	cinfo.scale_num = 1;
-	cinfo.quantize_colors = TRUE;
-	cinfo.desired_number_of_colors = 16;
+	//cinfo.scale_num = 1;
+	//cinfo.quantize_colors = TRUE;
+	//cinfo.desired_number_of_colors = 16;
 
 	// Start decompression instance
 	(void)jpeg_start_decompress(&cinfo);
+
+	// Copy the properties. These dimensions refer to the original
+	// image, not necessarily the output if scaling is used
+	img->width      = cinfo.output_width;
+	img->height     = cinfo.output_height;
+	img->channels   = cinfo.output_components;
+	img->colorspace = cinfo.out_color_space;
 
 	// Row physical size
 	row_stride = cinfo.output_width * cinfo.output_components;
@@ -898,6 +832,59 @@ int read_JPG_file(rif *img)
 	return 1;
 }
 
+
+// Initialize destination.  This is called by jpeg_start_compress()
+// before any data is actually written. It must initialize
+// next_output_byte and free_in_buffer. free_in_buffer must be
+// initialized to a positive value.
+void jpeg_init_destination (j_compress_ptr cinfo) {
+	rif *img = cinfo->client_data;
+
+	img->filelen = 0;
+	cinfo->dest->next_output_byte = img->file;
+	cinfo->dest->free_in_buffer = img->filelimit;
+}
+
+// This is called whenever the buffer has filled (free_in_buffer
+// reaches zero).  In typical applications, it should write out the
+// *entire* buffer (use the saved start address and buffer length;
+// ignore the current state of next_output_byte and free_in_buffer).
+// Then reset the pointer & count to the start of the buffer, and
+// return TRUE indicating that the buffer has been dumped.
+// free_in_buffer must be set to a positive value when TRUE is
+// returned.  A FALSE return should only be used when I/O suspension is
+// desired.
+boolean jpeg_empty_output_buffer (j_compress_ptr cinfo) {
+
+	// Do nothing. The entire available memory block has been used
+	// if this function is called.
+	return true;
+}
+
+// Terminate destination --- called by jpeg_finish_compress() after all
+// data has been written.  In most applications, this must flush any
+// data remaining in the buffer.  Use either next_output_byte or
+// free_in_buffer to determine how much data is in the buffer.
+void jpeg_term_destination (j_compress_ptr cinfo) {
+	rif *img = cinfo->client_data;
+
+	img->filelen = img->filelimit - cinfo->dest->free_in_buffer;
+}
+
+int jpeg_set_dest_mgr(j_compress_ptr cinfo,
+	struct jpeg_destination_mgr *dest, rif *img) {
+
+	dest->next_output_byte    = img->file;
+	dest->free_in_buffer      = img->filelimit;	
+	dest->init_destination    = jpeg_init_destination;
+	dest->empty_output_buffer = jpeg_empty_output_buffer;
+	dest->term_destination    = jpeg_term_destination;
+
+	cinfo->client_data = img;
+	cinfo->dest = dest;
+	return 1;
+}
+
 int write_JPG_file(rif *img) {
 	// jpeglib interface
 	struct jpeg_compress_struct cinfo;
@@ -906,27 +893,20 @@ int write_JPG_file(rif *img) {
 	struct jerrcontext jerr;
 	jerr.img = img;
 
+	// Destination manager
+	struct jpeg_destination_mgr destmgr;
+
 	// Pointer to a single row
 	JSAMPROW row_pointer[1];
 
 	// Physical row width in output buffer
 	int row_stride;
 
-	// The default behaviour is to write compressed output to newly
-	// allocated output and return a pointer to it. For now, just copy
-	// that output to the rif and free the newfile when done.
-	unsigned char *newfile = NULL;
-	unsigned long newfilelen = 0;
-
 	// Override the default error routine	
 	cinfo.err = jpeg_std_error(&jerr.pub);
 	jerr.pub.error_exit = jerrcallback;
 	if (setjmp(jerr.jmpmark)) {
 		jpeg_destroy_compress(&cinfo);
-
-		// The newfile is allocated later, but in case of error, the
-		// process returns back here.
-		free(newfile);
 		return 0;
 	}
 
@@ -934,13 +914,13 @@ int write_JPG_file(rif *img) {
 	// Do this after setting the error callbacks
 	(void) jpeg_create_compress(&cinfo);
 
-	// Set the output destination and capacity
-	(void) jpeg_mem_dest(&cinfo, &newfile, &newfilelen);
-
+	// Set the output destination manager (user call)
+	jpeg_set_dest_mgr(&cinfo, &destmgr, img);
+	
 	// Describe the pixel format
 	cinfo.image_width = img->width;
 	cinfo.image_height = img->height;
-	cinfo.input_components = img->channels;
+	cinfo.input_components = 3;
 	cinfo.in_color_space = JCS_RGB;
 
 	// Set all defaults after setting color space
@@ -952,20 +932,18 @@ int write_JPG_file(rif *img) {
 	// datastream should be written. This is true in most cases.
 
 	// JSAMPLEs per row in buffer
-	row_stride = img->width * img->channels;
+	row_stride = cinfo.image_width * cinfo.input_components;
 
 	// jpeg_abort() should be called before finishing if not all of the
 	// scanlines have been processed
 	while (cinfo.next_scanline < cinfo.image_height) {
 	    row_pointer[0] = img->rgb + (cinfo.next_scanline * row_stride);
-		if (jpeg_write_scanlines(&cinfo, row_pointer, 1) != 1)
-			break;
+		jpeg_write_scanlines(&cinfo, row_pointer, 1);
 	}
 
 	// Were all scanlines written?
 	if (cinfo.next_scanline < cinfo.image_height) {
 		(void) jpeg_destroy_compress(&cinfo);
-		free(newfile);
 		return 0;
 	}
 
@@ -973,18 +951,25 @@ int write_JPG_file(rif *img) {
 	// bufferload of data is written to the destination. It also
 	// releases working memory for this instance.
 	(void) jpeg_finish_compress(&cinfo);
-
 	(void) jpeg_destroy_compress(&cinfo);
-
-	// Copy the contents of the temporary memory space
-	memcpy(img->file, newfile, newfilelen);
-	img->filelen = newfilelen;
-
-	// Done with the temporary memory space
-	free(newfile);
 
 	return 1;
 }
 
 // END JPEG
 
+// The first RIF has the RGB stream. The second RIF has enough space for the
+// RGB stream, and the width and height preset to what the first one should be
+// resized to.
+int rifresize(rif *img, rif *resized) {
+	
+	int num_channels = 3;	
+	int returnstatus = 0;
+
+	// Resize the image
+	returnstatus = stbir_resize_uint8(img->rgb, img->width, img->height,
+		img->width * num_channels, resized->rgb, resized->width, resized->height,
+		resized->width * num_channels, num_channels);
+
+	return (returnstatus == 1);
+}

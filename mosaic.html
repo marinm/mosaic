@@ -3,9 +3,10 @@
 <head>
 <title>Mosaic</title>
 <link rel="stylesheet" href="/css/mosaic.css">
+<script src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.4.0.min.js"></script>
 <script src="/js/mosaic.js"></script>
 </head>
-<body onload="bodyonload()">
+<body>
 
 <div id="container">
 	<!--
@@ -30,11 +31,12 @@
 
 	<!--<div id="stopwatch">Elapsed Time: 0</div>-->
 
-	<div id="droparea">
+	<div id="droparea" class="droparea_off">
 		<!-- Creative Commons image, attribution required -->
 		<!-- Garrett Knoll, US  https://thenounproject.com/g_a.k_/ -->
 		<!-- https://thenounproject.com/search/?q=drag%20image&i=49665 -->
-		<img src="/img/dragdrop.png" id="dragover_goodtodrop">
+		<img src="/img/dragdrop.png" id="dragovericon">
+		<img src="" id="responseimg">
 	</div>
 </div>
 
