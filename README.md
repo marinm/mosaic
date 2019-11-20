@@ -1,5 +1,8 @@
 # mosaic
-Exploring minimum resolution images
+Exploring minimum resolution images.
+
+## What does it do?
+Mosaic is a tool for quantizing RBG images to 16x16 resolution. It can be run as a web app for users to upload images. It can also be run as a REST API to recieved encoded JPEG/PNG images.
 
 mosaic.c :
 
