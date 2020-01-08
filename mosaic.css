@@ -51,13 +51,11 @@ body {
 #container {
 	width: fit-content;
 	height: fit-content;
-	padding: 10px;
 	margin: 80px auto 0 auto;
-	border-radius: 3px;
-	box-shadow: 0 0 3px 3px #cccccc;
 	overflow: hidden;
 	background-color: #eeeeee;
 	text-align: center;
+	border: 1px solid blue;
 }
 
 #droparea,
@@ -72,12 +70,10 @@ body {
 
 .droparea_on {
 	background-color: #D1E1F9;
-	border: 2px dashed #0000FF;
 }
 
 .droparea_off {
 	background-color: #EEEEEE;
-	border: 2px dashed #AAAAAA;
 }
 
 #dragovericon {
