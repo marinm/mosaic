@@ -76,14 +76,6 @@ body {
 	background-color: #EEEEEE;
 }
 
-#dragovericon {
-	margin: 140px auto 0 auto;
-	width: 100px;
-	height: 100px;
-	opacity: 0.1;
-	z-index: -1;
-}
-
 #responseimg {
 	display: none;
 	border-radius: 5px;
