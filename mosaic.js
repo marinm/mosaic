@@ -42,7 +42,7 @@ function timestamp() {
 	return pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' +
 		   pad(now.getSeconds()) + '.' + now.getMilliseconds();
 }
- 
+
 function logevent(str) {
 	if (DEBUG)
 		console.log(timestamp() + ' ' + str);
@@ -94,14 +94,12 @@ function droparea_on() {
 	//$("#droparea").removeClass("droparea_off");
 	$("#droparea").attr("class", "droparea_on");
 	//$("#droparea").addClass("droparea_on");
-	//$("#dragovericon").fadeOut(100);
 }
 
 function droparea_off() {
 	$("#droparea").attr("class", "droparea_off");
 	//$("#droparea").removeClass("droparea_on");
 	//$("#droparea").addClass("droparea_off");
-	//$("#dragovericon").fadeIn(100);
 }
 
 function droparea_drop(e) {
@@ -192,7 +190,7 @@ function send_post(str) {
 
 	xhr.responseType = SERVER_RESPONSE_TYPE;
 	xhr.timeout = POST_REQUEST_TIMEOUT;
-	
+
 	xhr.onloadstart = xhr_loadstart;
 	xhr.onprogress = xhr_progress;
 	xhr.onabort = xhr_abort;
@@ -218,7 +216,7 @@ function send_post(str) {
 	//Returns the associated XMLHttpRequestUpload object.
 	//Can be used to gather transmission info when data is
 	//transferred to a server.
-	//xhr.upload 
+	//xhr.upload
 
 	//Cancel any network activity
 	//xhr.abort()
@@ -272,9 +270,6 @@ function show_bad_errno(response) {
 
 // Given a base64-encoded PNG file string, show it
 function showPNG(b64str) {
-	// Remove the dragover icon, it won't be used anymore
-	$("#dragovericon").remove();
-
 	// Show the response image
 	const src = 'data:image/png;base64,' + b64str;
 	$("#responseimg").attr("src", src);
