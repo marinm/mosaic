@@ -4,7 +4,7 @@
 // APP CONFIGURATION
 window.mosaic = {
 	debug: true,
-	serviceurl: "...",
+	serviceurl: "https://8dsmzvtv3f.execute-api.us-east-1.amazonaws.com/prod/pixelate",
 	requesttimeout: 10000,
 	maxfilesize: 4000000
 };
@@ -101,7 +101,7 @@ function fr_loadend(ev) {
 	var filestring = this.result.split(',')[1];
 	// Send off the request in JSON format
 	var request = {file: filestring};
-	//send_post(JSON.stringify(request));
+	send_post(JSON.stringify(request));
 }
 
 
@@ -111,7 +111,7 @@ function send_post(str) {
 	xhr.open('POST', window.mosaic.serviceurl);
 	logevent('SENDING ' + str.length + ' bytes');
 
-	xhr.responseType = SERVER_RESPONSE_TYPE;
+	xhr.responseType = 'json';
 	xhr.timeout = window.mosaic.requesttimeout;
 
 	xhr.onloadstart = xhr_loadstart;
@@ -182,7 +182,7 @@ function xhr_loadend(ev) {
 
 	logevent('response: ' + JSON.stringify(response));
 	//logevent('E' + response.errno + ' ' + response.width + 'x' + response.height + 'rgblen ' + response.rgblen);
-	showPNG(response.img);
+	//showPNG(response.img);
 }
 
 function show_bad_errno(response) {
