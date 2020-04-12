@@ -2,13 +2,21 @@
 <html>
 <head>
 <title>Mosaic</title>
-<link rel="stylesheet" href="/css/mosaic.css">
-<script src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.4.0.min.js"></script>
-<script src="/js/mosaic.js"></script>
+<link rel="stylesheet" href="mosaic.css">
+<link rel="stylesheet" href="include/jquery-ui.css">
+<script src="include/jquery.js"></script>
+<script src="include/jquery-ui.js"></script>
+<script src="mosaic.js"></script>
 </head>
 <body>
 
 <div id="container">
+	<input type="file" id="file-input" accept="image/*">
+
+	<button type="button" id="upload-button">Choose File...</button>
+	<div id="img-container">
+		<img src="" id="responseimg">
+	</div>
 	<!--
 	<div id="topbar">
 	-->
@@ -22,18 +30,7 @@
 	-->
 
 	<!--<img src="/img/tutorial_small.gif" id="tutorialimg">-->
-
-	<form id="dropform">
-		<p>Drag and drop files here</p>
-		<input type="file" id="fileinput" accept="image/*" onchange="handleFiles(this.files)">
-		<label class="button" for="fileinput">Select image</label>
-	</form>
-
 	<!--<div id="stopwatch">Elapsed Time: 0</div>-->
-
-	<div id="droparea" class="droparea_off">
-		<img src="" id="responseimg">
-	</div>
 </div>
 
 </body>

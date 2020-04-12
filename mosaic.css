@@ -1,11 +1,11 @@
 * {
 	font-family: sans-serif;
+	outline: none;
 }
 
 body {
 	/*background: url('../img/gray.png') repeat;*/
 	background-color: #FFFFFF;
-	text-align: center;
 	margin: 0;
 }
 
@@ -24,10 +24,6 @@ body {
 	border: 1px solid #BBBBBB;
 	border-bottom-width: 2px;
 	vertical-align: middle;
-}
-
-#uploadbutton {
-	float: left;
 }
 
 #githublink {
@@ -52,28 +48,18 @@ body {
 	width: fit-content;
 	height: fit-content;
 	margin: 80px auto 0 auto;
-	overflow: hidden;
-	background-color: #eeeeee;
-	text-align: center;
-	border: 1px solid blue;
 }
 
-#droparea,
-.droparea_on,
-.droparea_off {
+#img-container {
+	background-color: #D1E1F9; /* #eeeeee #d1e1f9 */
 	display: block;
 	width: 400px;
 	height: 400px;
 	padding: 10px;
-	text-align: center;
 }
 
-.droparea_on {
-	background-color: #D1E1F9;
-}
-
-.droparea_off {
-	background-color: #EEEEEE;
+#upload-button {
+	margin-bottom: 10pt;
 }
 
 #responseimg {
@@ -160,7 +146,7 @@ body {
 }
 
 
-#dropform {
+#file-input {
 	display: none;
 }
 

@@ -315,8 +315,16 @@ $(document).ready(function() {
 	$("#responseimg").on('dragover'  , preventDefaults);
 	$("#responseimg").on('drop'      , preventDefaults);
 	$("#responseimg").on('dragenter' , droparea_on);
-	$("#responseimg").on('dragover' , droparea_on);
+	$("#responseimg").on('dragover'  , droparea_on);
 	$("#responseimg").on('dragleave' , droparea_on);
 	$("#responseimg").on('drop'      , droparea_off);
-	$("#responseimg").on('drop'      , droparea_drop)
+	$("#responseimg").on('drop'      , droparea_drop);
+
+	$("#upload-button").button();
+	$("#upload-button").on('click', function(e) {
+		$("#file-input").click();
+	});
+	$("#file-input").on('change', function() {
+		console.log(this.files[0]);
+	});
 });
