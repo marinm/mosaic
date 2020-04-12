@@ -1,37 +1,32 @@
 // mosaic.js
 
+// ----------------------------------------------------------------
 // APP CONFIGURATION
-// --------------------------------- - ----------------------------
-const DEBUG                          = false;
-const SERVER_RESOURCE                = '/cgi/mosaic.py';
-const SERVER_RESPONSE_TYPE           = 'json';
-const MAX_FILESIZE                   = 4000000;
-const POST_REQUEST_TIMEOUT           = 10 * 1000;
-const STATBAR_STR_CUTOFF             = 50;
-
-const STATBAR_COLR_FAIL              = '#f22613';
-const STATBAR_COLR_OK                = '#00FF00';
+window.mosaic = {
+	debug: true,
+	serviceurl: "...",
+	requesttimeout: 10000,
+	maxfilesize: 4000000
+};
 // ----------------------------------------------------------------
 
 
-var applog = {timestamp: [], message: [], colr: []};
+// When the DOM has been loaded completely...
+$(document).ready(function() {
 
-var elapsed = null;
-var starttime = 0;
-
-function startstopwatch() {
-	starttime = Date.now();
-	elapsed = setInterval(updatestopwatch, 100);
-}
-
-function stopstopwatch() {
-	clearInterval(elapsed);
-}
-
-function updatestopwatch() {
-	//var stopwatch = document.getElementById('stopwatch');
-	//stopwatch.innerText = 'Elapsed Time: ' + (Date.now() - starttime).toString();
-}
+	$("#upload-button").button();
+	$("#upload-button").on('click', function(e) {
+		$("#file-input").click();
+	});
+	$("#file-input").on('change', function() {
+		if (this.files.length == 0) {
+			logevent("NO CHOICE MADE");
+			return;
+		}
+		console.log(this.files[0]);
+		loadfile(this.files[0]);
+	});
+});
 
 function pad(n) {
     return (n<10) ? '0'+n : n;
@@ -44,7 +39,7 @@ function timestamp() {
 }
 
 function logevent(str) {
-	if (DEBUG)
+	if (window.mosaic.debug)
 		console.log(timestamp() + ' ' + str);
 }
 
@@ -53,94 +48,24 @@ function preventDefaults(e) {
 	e.stopPropagation()
 }
 
-function clickupload() {
-	document.getElementById('fileinput').click();
-}
-
-// Prepare a string to fit it nicely into limited space
-function cutstr(str, cutoff) {
-	if (str.length > cutoff)
-		str = str.substr(0, cutoff - 1).concat('...');
-	return str;
-}
-
-function notify(str, colr) {
-	var statusbar = document.getElementById('statusbar');
-	str = cutstr(str, STATBAR_STR_CUTOFF);
-	statusbar.innerText = str;
-	statusbar.style.backgroundColor = colr;
-	statusbar.style.display = 'block';
-}
-
-function hidestatus() {
-	hideelement('statusbar');
-}
-
-function droparea_enter(e) {
-	// The DataTransfer object
-	const dt = e.originalEvent.dataTransfer;
-
-	// Only handle the data transfer if there is at least one file
-	if (!dt.types.includes('Files'))
-		return;
-
-	logevent('DRAG ENTER ' + dt.items.length);
-	logevent('DROP EFFECT ' + dt.dropEffect);
-
-	droparea_on();
-}
-
-function droparea_on() {
-	//$("#droparea").removeClass("droparea_off");
-	$("#droparea").attr("class", "droparea_on");
-	//$("#droparea").addClass("droparea_on");
-}
-
-function droparea_off() {
-	$("#droparea").attr("class", "droparea_off");
-	//$("#droparea").removeClass("droparea_on");
-	//$("#droparea").addClass("droparea_off");
-}
-
-function droparea_drop(e) {
-	// The DataTransfer object
-	const dt = e.originalEvent.dataTransfer;
-
-	logevent('DROP ' + dt.items.length + ' ITEMS');
-	logevent('DROP EFFECT ' + dt.dropEffect);
-	logevent('DROP TYPES ' + dt.types.toString());
-
-	// Only handle file drops
-	if (dt.files.length === 0)
-		return;
-
-	var files = dt.files;
-
-	// Handle only one input file
-	var file = files[0];
-	// Do nothing for too-big files
-	if (file.size > MAX_FILESIZE)
-		return;
-
-	loadfile(file);
-}
-
 
 // Load a file from client's local system
 function loadfile(file) {
 
-	// The request begins...
-	startstopwatch();
+	if (file.size > window.mosaic.maxfilesize) {
+		logevent('FILE TOO BIG');
+		return;
+	}
 
+	// The request begins...
 	var reader = new FileReader();
 
 	reader.onabort     = fr_abort;
 	reader.onerror     = fr_error;
 	reader.onload      = fr_load;
 	reader.onloadstart = fr_loadstart;
-	reader.onloadend   = fr_loadend;
 	reader.onprogress  = fr_progress;
-
+	reader.onloadend   = fr_loadend;
 
 	// The file will be loaded as base64 utf-8 string
 	reader.readAsDataURL(file);
@@ -148,12 +73,10 @@ function loadfile(file) {
 
 function fr_abort(ev) {
 	logevent('FR_ABORT');
-	stopstopwatch();
 }
 
 function fr_error(ev) {
 	logevent('FR_ERROR');
-	stopstopwatch();
 }
 
 function fr_load(ev) {
@@ -178,18 +101,18 @@ function fr_loadend(ev) {
 	var filestring = this.result.split(',')[1];
 	// Send off the request in JSON format
 	var request = {file: filestring};
-	send_post(JSON.stringify(request));
+	//send_post(JSON.stringify(request));
 }
 
 
 function send_post(str) {
 	var xhr = new XMLHttpRequest();
 
-	xhr.open('POST', SERVER_RESOURCE);
+	xhr.open('POST', window.mosaic.serviceurl);
 	logevent('SENDING ' + str.length + ' bytes');
 
 	xhr.responseType = SERVER_RESPONSE_TYPE;
-	xhr.timeout = POST_REQUEST_TIMEOUT;
+	xhr.timeout = window.mosaic.requesttimeout;
 
 	xhr.onloadstart = xhr_loadstart;
 	xhr.onprogress = xhr_progress;
@@ -243,8 +166,6 @@ function xhr_done(xhr)             { logevent('XHR_STATUS_DONE');             }
 function xhr_loadend(ev) {
 	logevent('XHR_LOADEND');
 
-	stopstopwatch();
-
 	switch (this.status) {
 	case 200 : logevent('SERVER RESPONSE OK'    ); break;
 	case 404 : logevent('FILE NOT FOUND'        ); break;
@@ -294,37 +215,3 @@ function showPNG(b64str) {
 //	}
 //
 //}
-
-// When the DOM has been loaded completely...
-$(document).ready(function() {
-	// Prevent defaults...
-	$("#droparea").on('dragenter' , preventDefaults);
-	$("#droparea").on('dragleave' , preventDefaults);
-	$("#droparea").on('dragover'  , preventDefaults);
-	$("#droparea").on('drop'      , preventDefaults);
-
-	// Drag-over behaviour
-	$("#droparea").on('dragenter' , droparea_enter);
-	$("#droparea").on('dragleave' , droparea_off);
-	$("#droparea").on('drop'      , droparea_off);
-	$("#droparea").on('drop'      , droparea_drop)
-
-	// Make the contained image behave as part of the drop area
-	$("#responseimg").on('dragenter' , preventDefaults);
-	$("#responseimg").on('dragleave' , preventDefaults);
-	$("#responseimg").on('dragover'  , preventDefaults);
-	$("#responseimg").on('drop'      , preventDefaults);
-	$("#responseimg").on('dragenter' , droparea_on);
-	$("#responseimg").on('dragover'  , droparea_on);
-	$("#responseimg").on('dragleave' , droparea_on);
-	$("#responseimg").on('drop'      , droparea_off);
-	$("#responseimg").on('drop'      , droparea_drop);
-
-	$("#upload-button").button();
-	$("#upload-button").on('click', function(e) {
-		$("#file-input").click();
-	});
-	$("#file-input").on('change', function() {
-		console.log(this.files[0]);
-	});
-});
