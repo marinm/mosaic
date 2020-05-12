@@ -1,10 +1,11 @@
 # mosaic
-Exploring minimum resolution images.
+Playing with minimum resolution images.
+
+Server and browser/client code.
+
 
 ## What does it do?
-Mosaic is a tool for quantizing RBG images to 16x16 resolution. It can be run as a web app for users to upload images. It can also be run as a REST API to recieved encoded JPEG/PNG images.
-
-mosaic.c :
+Mosaic is a tool for pixelating images. It can be run as a web app for users to upload images. It can also be run as a REST API to recieve encoded PNG images.
 
 Send a request string to https://marinm.net/cgi/mosaic.cgi
 

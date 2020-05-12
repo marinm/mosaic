@@ -8,7 +8,9 @@ app.use(express.json())
 app.post('/', handle_request)
 app.listen(3001)
 
-const PIXELS = 10
+const PIXEL_SIZE = 10
+const COVER_W = 400
+const COVER_H = 400
 
 //const pixelated = require('pixelated')
 function handle_request(req, res, next) {
@@ -21,13 +23,13 @@ function handle_request(req, res, next) {
     Jimp.read(buf).then(function(image) {
       image
       //.contain(400, 400)
-      .cover(400, 400)
-      .pixelate(PIXELS)
+      .cover(COVER_W, COVER_H)
+      .pixelate(PIXEL_SIZE)
       .scan(0, 0, image.bitmap.width, image.bitmap.height, draw_grid)
       .getBufferAsync('image/png')
       .then(function(buf) {
-        const cover_filestr = buf.toString('base64')
-        res.status(200).json({cover: cover_filestr})
+        const result_base64 = buf.toString('base64')
+        res.status(200).json({result: result_base64})
       })
     })
   } catch (err) {
