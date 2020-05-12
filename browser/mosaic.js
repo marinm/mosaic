@@ -122,7 +122,7 @@ function send_file(filestr) {
 }
 
 function handle_response(response) {
-  showPNG(response.cover);
+  showPNG(response.result);
 }
 
 // Given a base64-encoded PNG file string, show it
