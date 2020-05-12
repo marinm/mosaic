@@ -4,14 +4,13 @@ const bodyParser = require('body-parser')
 const Jimp = require('jimp')
 
 const SERVER_PORT = 3001
-const WEBSITE_FILES = '../browser'
+const WEBSITE_FILES = __dirname + '/../browser'
 const JSON_LIMIT = '15mb'
 
 const PIXEL_SIZE = 10
 const COVER_W = 400
 const COVER_H = 400
 
-//const pixelated = require('pixelated')
 function handle_request(req, res, next) {
   try {
     const buf = Buffer.from(req.body.file, 'base64')
