@@ -9,6 +9,8 @@ window.mosaic = {
 };
 // ***
 
+const DEFAULT_IMAGE = 'transcendence-cat.png'
+
 // Assume the DOM has loaded.
 
 // Custom-style upload button is replacement for browser default file input button
@@ -17,7 +19,7 @@ $("#choose-file-button").button().click(function() {
 });
 
 var croparea = $('#select-area-container').croppie({
-  url: 'img/shrek.jpg',
+  url: DEFAULT_IMAGE,
   viewport: {width: 260, height: 260, type: 'square'}
 });
 

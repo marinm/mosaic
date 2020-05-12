@@ -1,25 +1,37 @@
 # mosaic
-Playing with minimum resolution images.
 
-Server and browser/client code.
+A graphics filter for pixelating (or tiling) blurry images to make them more recognizable. This effect is similar to the results of dithering, where random noise is added to low-quality photos to make them look better.
 
+![alt text](cat-screenshot.png "Mosaic pixelation demo")
 
-## What does it do?
-Mosaic is a tool for pixelating images. It can be run as a web app for users to upload images. It can also be run as a REST API to recieve encoded PNG images.
+_Left image credit: @maxgoodrich Cat Transcendence on [YouTube](https://www.youtube.com/watch?v=IuysY1BekOE)_
 
-Send a request string to https://marinm.net/cgi/mosaic.cgi
+For a demo, check out mosaic.marinm.net.
 
-#### REQUEST STRING
+## Usage
+
+Start the server:
+
+```
+$ cd server
+$ npm install
+$ node server.js
+```
+
+#### API
+
+The client sends a base64-encoded image file (PNG, JPEG, BMP). Keep in mind the input file size limit.
 ```
 {"file":"..."}
 ```
-Where `...` is a base64-encoded JPEG or PNG file.
 
-#### RESPONSE STRING
+The server responds similarly with a base64-encoded PNG file:
+
 ```
-{"palette":"..."}
+{"result":"..."}
 ```
 
-Where `...` is a base64-encoded PNG file.
+### Dependencies
 
-The "palette" file is a small 16x16 thumbnail where each pixel is an entry in the quantized colour space for the request image.
+* [Croppie](https://github.com/Foliotek/Croppie) for cropping a square from the original image
+* [JIMP](https://github.com/oliver-moran/jimp) for image manipulation (pixelation, drawing black lines)
