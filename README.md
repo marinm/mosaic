@@ -6,7 +6,7 @@ A graphics filter for pixelating (or tiling) blurry images to make them more rec
 
 _Left image credit: @maxgoodrich Cat Transcendence on [YouTube](https://www.youtube.com/watch?v=IuysY1BekOE)_
 
-For a demo, check out mosaic.marinm.net.
+For a demo, check out [mosaic.marinm.net](https://mosaic.marinm.net).
 
 ## Usage
 
