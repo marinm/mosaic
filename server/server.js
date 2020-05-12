@@ -4,7 +4,7 @@ const bodyParser = require('body-parser')
 const Jimp = require('jimp')
 
 const SERVER_PORT = 3001
-const WEBSITE_FILES = __dirname + '../browser'
+const WEBSITE_FILES = '../browser'
 const JSON_LIMIT = '15mb'
 
 const PIXEL_SIZE = 10
