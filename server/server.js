@@ -15,9 +15,6 @@ const COVER_H = 400
 function handle_request(req, res, next) {
   try {
     const buf = Buffer.from(req.body.file, 'base64')
-    console.log(buf.length)
-
-    console.log(Jimp)
 
     Jimp.read(buf).then(function(image) {
       image
@@ -44,7 +41,7 @@ function draw_grid(x, y, idx) {
     var blue = this.bitmap.data[idx + 2];
     var alpha = this.bitmap.data[idx + 3];
 
-    if (x % PIXELS == 0 || y % PIXELS == 0 || x == this.bitmap.width - 1 || y == this.bitmap.height - 1) {
+    if (x % PIXEL_SIZE == 0 || y % PIXEL_SIZE == 0 || x == this.bitmap.width - 1 || y == this.bitmap.height - 1) {
       this.bitmap.data[idx + 0] = 0;
       this.bitmap.data[idx + 1] = 0;
       this.bitmap.data[idx + 2] = 0;
