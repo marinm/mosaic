@@ -1,0 +1,24 @@
+{
+  "name": "mosaic",
+  "version": "1.0.0",
+  "description": "Exploring minimum resolution images.",
+  "main": "mosaic.js",
+  "scripts": {
+    "start": "nodemon server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marinm/mosaic.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/marinm/mosaic/issues"
+  },
+  "homepage": "https://github.com/marinm/mosaic#readme",
+  "dependencies": {
+    "express": "^4.17.1",
+    "jimp": "^0.10.3",
+    "nodemon": "^2.0.3"
+  }
+}

@@ -1,0 +1,60 @@
+* {
+	font-family: sans-serif;
+	outline: none;
+}
+
+input, input:focus, .cr-slider, .cr-slider:focus {
+  outline: none;
+  border: 0;
+}
+
+button {
+  outline: none;
+  font-size: 9pt;
+}
+
+img {
+  max-width: 100%; /* cropper.js requires this */
+}
+
+body {
+	background-color: #fff;
+	margin: 0;
+}
+
+#container {
+	width: max-content;
+	height: max-content;
+	margin: 80px auto 0 auto;
+}
+
+#container-layout {
+  display: grid;
+  grid-template-columns: 50% 50%;
+  gap: 10px;
+}
+
+#file-input {
+  display: none;
+}
+
+#select-pane, #result-pane {
+  display: grid;
+  grid-template-rows: 10% 90%;
+  gap: 20px;
+}
+
+#select-topbar, #result-topbar {
+	width: 100%;
+	display: block;
+	box-sizing: border-box;
+	text-align: center;
+}
+
+#select-area-container, #response-img-container {
+	background-color: #eee;/* #D1E1F9;#eeeeee #d1e1f9 */
+	display: block;
+	width: 300px;
+	height: 300px;
+  padding: 0px;
+}
