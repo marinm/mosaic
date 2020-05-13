@@ -18,7 +18,7 @@ $ npm install
 $ node server.js
 ```
 
-#### API
+## API
 
 The client sends a base64-encoded image file (PNG, JPEG, BMP). Keep in mind the input file size limit.
 ```
@@ -31,7 +31,7 @@ The server responds similarly with a base64-encoded PNG file:
 {"result":"..."}
 ```
 
-### Dependencies
+## Dependencies
 
 * [Croppie](https://github.com/Foliotek/Croppie) for cropping a square from the original image
 * [JIMP](https://github.com/oliver-moran/jimp) for image manipulation (pixelation, drawing black lines)

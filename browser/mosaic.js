@@ -1,11 +1,16 @@
 // mosaic.js
 
+// Supported input image file formats:
+// jpg png webp
+//
+// Maximum input file size:
+// unlimited
+
 // ***
 // APP CONFIGURATION
 window.mosaic = {
 	serviceurl: "/",
 	requesttimeout: 30000,
-  maxfilesize: 5000000,
 };
 // ***
 
@@ -49,24 +54,19 @@ $("#file-input").on('input', function() {
   // One file per request
   const file = this.files[0];
 
-  console.log(file.size);
+  // Croppie will resize the cropped part of the image so the user can decide
+  // for themselves if an image file is too big to be processed by their
+  // browser
 
-  if (file.size > window.mosaic.maxfilesize) {
-    display_error('FILE TOO BIG');
-    this.value = null;
-    //enable_buttons();
-  }
-  else {
-    croparea.croppie('bind', {url: window.URL.createObjectURL(file)});
+  croparea.croppie('bind', {url: window.URL.createObjectURL(file)});
 
   // Forget the chosen file/value so selecting it again still triggers a change event
   this.value = null;
-  }
 });
 
 $('#generate-button').button().click(function() {
-
-  croparea.croppie('result', 'base64')
+  // The crop result is by default the same size (width x height) as the viewport
+  croparea.croppie('result', {type: 'base64'})
   .then(filestr => filestr.split(',')[1]) // Remove the "data:image/png;base64," prefix
   .then(send_file)
   .then(handle_response)
