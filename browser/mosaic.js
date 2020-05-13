@@ -16,6 +16,9 @@ window.mosaic = {
 
 const DEFAULT_IMAGE = 'transcendence-cat.png'
 
+// Allowed input MIME types
+const ALLOWED_FORMATS = ['image/jpeg', 'image/png', 'image/webp'];
+
 // Assume the DOM has loaded.
 
 // Custom-style upload button is replacement for browser default file input button
@@ -54,11 +57,16 @@ $("#file-input").on('input', function() {
   // One file per request
   const file = this.files[0];
 
-  // Croppie will resize the cropped part of the image so the user can decide
-  // for themselves if an image file is too big to be processed by their
-  // browser
-
-  croparea.croppie('bind', {url: window.URL.createObjectURL(file)});
+  if (! ALLOWED_FORMATS.includes(file.type)) {
+    $('#choose-file-button').effect('shake', {distance: 5});
+    display_error('File format not supported')
+  }
+  else {
+    // Croppie will resize the cropped part of the image so the user can decide
+    // for themselves if an image file is too big to be processed by their
+    // browser
+    croparea.croppie('bind', {url: window.URL.createObjectURL(file)});
+  }
 
   // Forget the chosen file/value so selecting it again still triggers a change event
   this.value = null;
