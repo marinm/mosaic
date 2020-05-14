@@ -1,12 +1,12 @@
 # mosaic
 
+**Demo: [mosaic.marinm.net](https://mosaic.marinm.net)**
+
 A graphics filter for pixelating (or tiling) blurry images to make them more recognizable. This effect is similar to the results of dithering, where random noise is added to low-quality photos to make them look better.
 
 ![alt text](cat-screenshot.png "Mosaic pixelation demo")
 
 _Left image credit: @maxgoodrich Cat Transcendence on [YouTube](https://www.youtube.com/watch?v=IuysY1BekOE)_
-
-For a demo, check out [mosaic.marinm.net](https://mosaic.marinm.net).
 
 ## Usage
 
