@@ -1,0 +1,3 @@
+# Force github to label this repo as a JavaScript project
+* linguist-vendored
+*.js linguist-vendored=false
