@@ -1,10 +1,9 @@
+const path = require('path')
 const express = require('express')
-const app = express()
+const app = express.Router()
 const bodyParser = require('body-parser')
 const Jimp = require('jimp')
 
-const SERVER_PORT = 3001
-const WEBSITE_FILES = __dirname + '/../browser'
 const JSON_LIMIT = '15mb'
 
 const PIXEL_SIZE = 10
@@ -47,11 +46,12 @@ function draw_grid(x, y, idx) {
       this.bitmap.data[idx + 3] = 255;
     }
     // rgba values run from 0 - 255
-    // e.g. this.bitmap.data[idx] = 0; // removes red from this pixel
+    // e.g. this.bitmap.data[idx] = 0; // removes red from this pixelj
 }
 
-app.use(express.static(WEBSITE_FILES))
 app.use(bodyParser.json({limit: JSON_LIMIT}))
 app.use(express.json())
 app.post('/', handle_request)
-app.listen(SERVER_PORT)
+app.use('/', express.static(path.join(__dirname, '/browser')))
+
+module.exports = app
