@@ -9,7 +9,7 @@
 // ***
 // APP CONFIGURATION
 window.mosaic = {
-	serviceurl: "/",
+	serviceurl: "/mosaic",
 	requesttimeout: 30000,
 };
 // ***
